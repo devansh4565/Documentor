@@ -7,6 +7,7 @@ const MobileChatView = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
+  const API = import.meta.env.VITE_API_BASE_URL;
 
   // Fetch messages when component mounts
   useEffect(() => {
@@ -14,7 +15,7 @@ const MobileChatView = () => {
     const fetchMessages = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:5000/api/chats/${sessionId}/messages`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}/messages`);
         const data = await res.json();
         setMessages(data || []);
       } catch (err) {

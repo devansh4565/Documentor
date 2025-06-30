@@ -12,6 +12,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 const MobilePdfView = () => {
   const { sessionId, fileId } = useParams();
   const location = useLocation();
+  const API = import.meta.env.VITE_API_BASE_URL;
 
   const [file, setFile] = useState(location.state?.file || null);
   const [numPages, setNumPages] = useState(null);
@@ -27,7 +28,7 @@ const MobilePdfView = () => {
         try {
           setLoading(true);
           // Fetch all files for the session and find the one we need
-          const res = await fetch(`http://localhost:5000/api/files/${sessionId}`);
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${sessionId}`);
           const data = await res.json();
           const targetFile = data.files?.find(f => f._id === fileId);
           if (targetFile) {
@@ -80,7 +81,7 @@ const MobilePdfView = () => {
       <main className="flex-1 min-h-0 overflow-y-auto flex justify-center p-2">
         {file ? (
           <Document
-            file={`http://localhost:5000${file.url}`}
+            file={`${import.meta.env.VITE_API_BASE_URL}${file.url}`}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={console.error}
             key={file._id}

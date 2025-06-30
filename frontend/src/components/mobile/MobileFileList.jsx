@@ -6,13 +6,14 @@ const MobileFileList = () => {
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const API = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     if (!sessionId) return;
     const fetchFiles = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:5000/api/files/${sessionId}`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${sessionId}`);
         const data = await res.json();
         setFiles(data.files || []);
       } catch (err) {

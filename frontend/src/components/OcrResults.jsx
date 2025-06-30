@@ -5,11 +5,12 @@ import axios from "axios";
 const OcrResults = () => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const API = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/ocr/results");
+        const res = await axios.get("${import.meta.env.VITE_API_BASE_URL}/api/ocr/results");
         setResults(res.data);
       } catch (error) {
         console.error("Failed to fetch OCR results:", error);

@@ -9,7 +9,7 @@ export async function extractTextFromPDF(file) {
   const formData = new FormData();
   formData.append("pdf", file);
 
-  const res = await fetch("http://localhost:5000/api/ocr", {
+  const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/ocr", {
     method: "POST",
     body: formData,
   });

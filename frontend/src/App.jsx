@@ -44,10 +44,12 @@ const App = () => {
     const isDesktop = useMediaQuery('(min-width: 1024px)');
 
     // This effect checks the user's session once on app load.
+ const API = import.meta.env.VITE_API_BASE_URL;
+
     useEffect(() => {
         const checkUserSession = async () => {
             try {
-                const res = await axios.get("http://localhost:5000/api/auth/me", { withCredentials: true });
+                const res = await axios.get(`${API}/api/auth/me`, { withCredentials: true });
                 setUser(res.data);
             } catch (error) {
                 console.log("No active user session.");
@@ -64,7 +66,7 @@ const App = () => {
         if (user) {
             const fetchSessions = async () => {
                 try {
-                  const res = await axios.get("http://localhost:5000/api/chats", {
+                  const res = await axios.get("${import.meta.env.VITE_API_BASE_URL}/api/chats", {
                     withCredentials: true
                   });
                   console.log("✅ Sessions fetched:", res.data);

@@ -20,6 +20,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 // --- Main Component ---
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
     // --- State Management ---
+    const API = import.meta.env.VITE_API_BASE_URL;
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   
   // Sidebar Visibility
@@ -146,7 +147,7 @@ useEffect(() => {
     if (initialSessions && Object.keys(initialSessions).length > 0) return; // Already loaded
 
     try {
-      const res = await fetch("http://localhost:5000/api/chats", {
+      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/chats", {
         credentials: "include",
       });
       const sessionsArray = await res.json();
@@ -179,14 +180,14 @@ useEffect(() => {
       try {
         setLoading(true);
         const [filesRes, messagesRes, highlightsRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/files/${selectedChat}`, {
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${selectedChat}`, {
             credentials: "include"
           }),
           
-          fetch(`http://localhost:5000/api/chats/${selectedChat}/messages`, {
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`, {
             credentials: "include"
           }),
-          fetch(`http://localhost:5000/api/highlights/${selectedChat}`, {
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/highlights/${selectedChat}`, {
             credentials: "include"
           }),
         ]);
@@ -252,7 +253,7 @@ const createChat = async () => {
     try {
         // Step 1: Call the backend to create the new session in the database.
         // The backend will automatically associate it with the logged-in user.
-        const res = await axios.post("http://localhost:5000/api/chats", 
+        const res = await axios.post("${import.meta.env.VITE_API_BASE_URL}/api/chats", 
             { name: newChatName },
             { withCredentials: true } // Crucial for sending the user's login cookie
         );
@@ -285,7 +286,7 @@ const createChat = async () => {
       const newName = prompt("Enter new chat name:", initialSessions[sessionId]?.name || "");
       if (!newName?.trim()) return;
       try {
-          await axios.put(`http://localhost:5000/api/chats/${sessionId}`, { name: newName });
+          await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}`, { name: newName });
           setInitialSessions(prev => ({
               ...prev,
               // ✅ KEY FIX: We update session.name directly
@@ -300,7 +301,7 @@ const createChat = async () => {
   const deleteChat = useCallback(async (sessionId) => {
     if (!window.confirm("Are you sure you want to delete this chat?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/chats/${sessionId}`);
+      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}`);
       const updatedSessions = { ...initialSessions };
       delete updatedSessions[sessionId];
       setInitialSessions(updatedSessions);
@@ -331,7 +332,7 @@ const createChat = async () => {
 
         try {
             // The fetch call itself doesn't need to change.
-            const res = await fetch("http://localhost:5000/api/ocr", { 
+            const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/ocr", { 
                 method: "POST", 
                 body: formData,
                 // IMPORTANT: Make sure your fetch sends credentials if it's not already
@@ -395,12 +396,12 @@ const handleSendMessage = async () => {
         
         // A. Save user's message
         await axios.post(
-          `http://localhost:5000/api/chats/${selectedChat}/messages`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`,
           { role: "user", content: userMessageText }
         );
 
         // B. Call the AI
-        const res = await axios.post("http://localhost:5000/api/ask", {
+        const res = await axios.post("${import.meta.env.VITE_API_BASE_URL}/api/ask", {
             history: historyForAPI,
             fileContent: selectedFile?.content || "",
         });
@@ -409,7 +410,7 @@ const handleSendMessage = async () => {
 
         // C. Save the bot's response
         await axios.post(
-          `http://localhost:5000/api/chats/${selectedChat}/messages`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`,
           { role: "assistant", content: botResponseText }
         );
         
@@ -468,7 +469,7 @@ const handleSendMessage = async () => {
           const combinedText = textsToSummarize.join("\n\n--- END OF DOCUMENT ---\n\n");
           
           // This can use your existing /api/ask endpoint or a new one
-          const res = await fetch("http://localhost:5000/api/ask", {
+          const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/ask", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -489,7 +490,7 @@ const handleSendMessage = async () => {
           setMessages(prev => [...prev, summaryMsg]);
           
           // Save summary to the database
-          await axios.post(`http://localhost:5000/api/chats/${selectedChat}/messages`, {
+          await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`, {
               role: 'assistant',
               content: `Summary of ${fileNames}:\n\n${summaryText}`
           });
@@ -521,7 +522,7 @@ const handleSendMessage = async () => {
       try {
           // ✅ We are explicitly setting the method to "POST"
           // and including the necessary headers and body.
-          const res = await fetch("http://localhost:5000/api/generate-mindmap", {
+          const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/generate-mindmap", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
@@ -536,7 +537,7 @@ const handleSendMessage = async () => {
           const mindMapData = await res.json();
 
           // Save the successfully generated map data
-          await fetch(`http://localhost:5000/api/mindmap/${selectedChat}`, {
+          await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${selectedChat}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ data: mindMapData }),
@@ -725,7 +726,7 @@ const handleSendMessage = async () => {
                         <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
                             {containerWidth > 0 && selectedFile?.url && (
                               <Document
-                                file={`http://localhost:5000${selectedFile.url}`}
+                                file={`${import.meta.env.VITE_API_BASE_URL}${selectedFile.url}`}
                                 onLoadSuccess={onDocumentLoadSuccess}
                                 key={selectedFile._id}
                               >

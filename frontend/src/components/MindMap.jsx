@@ -62,6 +62,7 @@ const MindMap = () => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [loading, setLoading] = useState(true);
     const isDrawing = useRef(false);
+    const API = import.meta.env.VITE_API_BASE_URL;
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -73,7 +74,7 @@ const MindMap = () => {
             setLoading(true);
 
             try {
-                const res = await fetch(`http://localhost:5000/api/mindmap/${sessionId}`);
+                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${sessionId}`);
                 const aiData = await res.json();
                 if (!aiData) { setLoading(false); return; }
 
