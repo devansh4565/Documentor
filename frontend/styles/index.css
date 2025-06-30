@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -- Keyframe Animations -- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* -- Utility Classes using Keyframes -- */
+@layer utilities {
+  .loader {
+    border-top-color: #6366f1;
+    animation: spin 1s linear infinite;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+  }
+
+  .animate-pop-in {
+    animation: pop-in 0.3s ease-out forwards;
+  }
+}
+
+/* -- Global and Legacy Styles -- */
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.light {
+  --tw-bg-opacity: 1;
+  --tw-text-opacity: 1;
+}
+
+.dark {
+  background-color: #1e1e2f;
+  color: white;
+}
+
+.bg-sidebar {
+  background-color: #4A4063;
+}
+
+@layer utilities {
+    @keyframes bounce-custom {
+      0%, 100% {
+        transform: translateY(-25%);
+        animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+      }
+      50% {
+        transform: translateY(0);
+        animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+      }
+    }
+
+    /* While you can use Tailwind's `animate-bounce`, this lets you control duration */
+    .animate-bounce-custom {
+      animation: bounce-custom 1s infinite;
+    }
+}
