@@ -1,0 +1,46 @@
+services:
+  # -----------------------------------
+  # Your Frontend Service Definition (Example)
+  # -----------------------------------
+  - type: web
+    name: documentor-frontend
+    env: static
+    repo: https://github.com/devansh4565/Documentor
+    # Directory where your frontend code is
+    rootDir: frontend 
+    buildFilter:
+      paths:
+        - "frontend/**"
+    buildCommand: "npm install && npm run build"
+    # Directory where the build output is located
+    staticPublishPath: dist 
+
+  # -----------------------------------
+  # Your Backend Service Definition (WITH THE FIX)
+  # -----------------------------------
+  - type: web
+    name: documentor-backend
+    env: node
+    repo: https://github.com/devansh4565/Documentor
+    # Directory where your backend code is
+    rootDir: backend 
+    buildFilter:
+      paths:
+        - "backend/**"
+    # The build command is now relative to `rootDir`
+    buildCommand: "npm install" 
+    # The start command is also relative to `rootDir`
+    startCommand: "node index.js" 
+    # Add your environment variables here
+    envVars:
+      - key: MONGO_URI
+        fromSecret: true
+      - key: GOOGLE_CLIENT_ID
+        fromSecret: true
+      # ... add all your other secrets and variables
+    
+    # ✅ === THIS IS THE FIX === ✅
+    # Tell Render to install these system packages before running your code.
+    aptPackages:
+      - poppler-utils # Required by pdf-poppler
+      - ghostscript   # Required by pdf2pic / gm for PDF conversion
