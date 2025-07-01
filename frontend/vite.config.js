@@ -16,6 +16,7 @@ export default defineConfig({
 
   // ✅ This is the fix for the 404 on refresh or direct links
   build: {
+    sourcemap: true,
     rollupOptions: {
       input: './index.html',
     },
