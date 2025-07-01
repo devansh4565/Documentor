@@ -142,28 +142,33 @@ const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
         setMobileDrawer(null); // Close any mobile drawers
     }
   }, [isDesktop]);
-useEffect(() => {
-  const fetchInitialSessions = async () => {
-    if (initialSessions && Object.keys(initialSessions).length > 0) return; // Already loaded
+  useEffect(() => {
+    const fetchInitialSessions = async () => {
+      if (initialSessions && Object.keys(initialSessions).length > 0) return; // Already loaded
 
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, {
-        credentials: "include",
-      });
-      const sessionsArray = await res.json();
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, {
+          credentials: "include",
+        });
+        const sessionsArray = await res.json();
 
-      // Convert array to object format: { [id]: session }
-      const sessionObj = {};
-      sessionsArray.forEach(s => sessionObj[s._id] = s);
+        // Convert array to object format: { [id]: session }
+        const sessionObj = {};
+        sessionsArray.forEach(s => sessionObj[s._id] = s);
 
-      setInitialSessions(sessionObj);
-    } catch (err) {
-      console.error("❌ Failed to auto-fetch initial sessions:", err);
-    }
-  };
+        setInitialSessions(sessionObj);
 
-  fetchInitialSessions();
-}, []);
+        // Auto-select the first session if none selected
+        if (sessionsArray.length > 0 && !selectedChat) {
+          setSelectedChat(sessionsArray[0]._id);
+        }
+      } catch (err) {
+        console.error("❌ Failed to auto-fetch initial sessions:", err);
+      }
+    };
+
+    fetchInitialSessions();
+  }, [initialSessions, selectedChat]);
   // Effect to fetch all necessary data when a chat session is selected
   useEffect(() => {
     const fetchSessionData = async () => {
@@ -178,6 +183,7 @@ useEffect(() => {
         return;
       }
       try {
+        console.log("Fetching session data for selectedChat:", selectedChat);
         setLoading(true);
         const [filesRes, messagesRes, highlightsRes] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${selectedChat}`, {
