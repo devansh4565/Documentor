@@ -293,8 +293,8 @@ app.listen(PORT, () => console.log(`✅ Server is listening on http://localhost:
 
 app.get("/api/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "/login", // or your frontend fallback
-    session: false // Optional: disable if you don't want sessions
+    failureRedirect: `${process.env.FRONTEND_URL}/login`,
+    session: true
   }),
   (req, res) => {
     console.log("🎉 Auth success, user:", req.user);
