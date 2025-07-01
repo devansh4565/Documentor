@@ -2,18 +2,20 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
+  base: '/',
+  build: {
+    outDir: 'dist',
+  },
   server: {
-    host: "localhost", // or "0.0.0.0" to accept any IP
+    host: '0.0.0.0', // Good for deployment
     port: 5173,
     strictPort: true,
     hmr: {
-      protocol: "ws",
-      host: "localhost", 
+      protocol: 'ws',
+      host: 'localhost',
     },
   },
-  plugins: [react()],
-  base: './',
-
   // ✅ This is the fix for the 404 on refresh or direct links
   build: {
     sourcemap: true,

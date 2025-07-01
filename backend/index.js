@@ -34,7 +34,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // --- Middleware Section ---
 
 // 1. Explicitly enable CORS for all preflight requests
-app.options('*', cors({ origin: 'process.env.FRONTEND_URL', credentials: true })); 
+app.options('*', cors({ origin: process.env.FRONTEND_URL, credentials: true })); 
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
@@ -290,14 +290,6 @@ app.listen(PORT, () => console.log(`✅ Server is listening on http://localhost:
 // =========================================================================
 // This sends all non-API GET requests to the frontend's main HTML file,
 // allowing React Router to handle the URL.
-app.get('*', (req, res) => {
-  // We need to provide the path to your frontend's built HTML file.
-  // When you build your frontend, this is typically in `frontend/dist/index.html`.
-  // Let's assume the path from the backend folder is `../frontend/dist/index.html`
-  // Make sure your `dist` folder from your frontend build is in the right place relative to the backend.
-
-  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-});
 
 app.get("/api/auth/google/callback",
   passport.authenticate("google", {
@@ -306,7 +298,7 @@ app.get("/api/auth/google/callback",
   }),
   (req, res) => {
     console.log("🎉 Auth success, user:", req.user);
-    res.redirect("https://documentor-frontend.onrender.com/dashboard"); // adjust if needed
+    res.redirect(`${process.env.FRONTEND_URL}/workarea`); // adjust if needed
   }
 );
 
