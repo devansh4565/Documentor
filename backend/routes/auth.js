@@ -14,15 +14,24 @@ authRouter.get('/google/callback',
 );
 const ensureAuth = (req, res, next) => {
   console.log("ensureAuth called, isAuthenticated:", req.isAuthenticated());
-  if (req.isAuthenticated()) {
-    return next();
+  try {
+    if (req.isAuthenticated()) {
+      console.log("User is authenticated, user:", req.user);
+      return next();
+    } else {
+      console.log("User is not authenticated");
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+  } catch (err) {
+    console.error("Error in ensureAuth middleware:", err);
+    return res.status(500).json({ message: 'Internal server error' });
   }
-  res.status(401).json({ message: 'User not authenticated' });
 };
 
 // Route for the frontend to check if a user is currently logged in
 authRouter.get('/me', ensureAuth, (req, res) => {
-    res.status(200).json(req.user);
+  console.log("GET /me called, user:", req.user);
+  res.status(200).json(req.user);
 });
 // Route for logging out
 // in backend/routes/auth.js
