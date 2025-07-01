@@ -27,7 +27,7 @@ const UploadSection = () => {
     try {
       // ✅ We need to send credentials so the backend knows which user this is
       // and can assign the file correctly.
-      const ocrRes = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/ocr", {
+      const ocrRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ocr`, {
         method: "POST",
         body: formData,
         credentials: 'include' // <--- THIS IS CRITICAL

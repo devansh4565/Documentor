@@ -147,7 +147,7 @@ useEffect(() => {
     if (initialSessions && Object.keys(initialSessions).length > 0) return; // Already loaded
 
     try {
-      const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/chats", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, {
         credentials: "include",
       });
       const sessionsArray = await res.json();
@@ -253,7 +253,7 @@ const createChat = async () => {
     try {
         // Step 1: Call the backend to create the new session in the database.
         // The backend will automatically associate it with the logged-in user.
-        const res = await axios.post("${import.meta.env.VITE_API_BASE_URL}/api/chats", 
+        const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, 
             { name: newChatName },
             { withCredentials: true } // Crucial for sending the user's login cookie
         );
@@ -332,7 +332,7 @@ const createChat = async () => {
 
         try {
             // The fetch call itself doesn't need to change.
-            const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/ocr", { 
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ocr`, { 
                 method: "POST", 
                 body: formData,
                 // IMPORTANT: Make sure your fetch sends credentials if it's not already
@@ -401,7 +401,7 @@ const handleSendMessage = async () => {
         );
 
         // B. Call the AI
-        const res = await axios.post("${import.meta.env.VITE_API_BASE_URL}/api/ask", {
+        const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/ask`, {
             history: historyForAPI,
             fileContent: selectedFile?.content || "",
         });
@@ -469,7 +469,7 @@ const handleSendMessage = async () => {
           const combinedText = textsToSummarize.join("\n\n--- END OF DOCUMENT ---\n\n");
           
           // This can use your existing /api/ask endpoint or a new one
-          const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/ask", {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ask`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -522,7 +522,7 @@ const handleSendMessage = async () => {
       try {
           // ✅ We are explicitly setting the method to "POST"
           // and including the necessary headers and body.
-          const res = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/generate-mindmap", {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/generate-mindmap`, {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",

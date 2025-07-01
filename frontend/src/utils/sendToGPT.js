@@ -1,7 +1,7 @@
 // src/utils/sendToGPT.js
 export const sendToGPT = async (text) => {
   try {
-    const response = await fetch("${import.meta.env.VITE_API_BASE_URL}/api/gpt-summary", {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/gpt-summary`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

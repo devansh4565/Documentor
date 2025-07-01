@@ -10,7 +10,7 @@ const Header = ({ user }) => {
     const handleLogout = async () => {
         try {
             // This POST request clears the session on the backend
-            await axios.post('${import.meta.env.VITE_API_BASE_URL}/api/auth/logout', {}, { withCredentials: true });
+            await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`, {}, { withCredentials: true });
             
             // This forces a reload. The App component will then see the user is gone and redirect to /login
             window.location.href = '/login'; 

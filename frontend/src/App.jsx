@@ -66,7 +66,7 @@ const App = () => {
         if (user) {
             const fetchSessions = async () => {
                 try {
-                  const res = await axios.get("${import.meta.env.VITE_API_BASE_URL}/api/chats", {
+                  const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, {
                     withCredentials: true
                   });
                   console.log("✅ Sessions fetched:", res.data);

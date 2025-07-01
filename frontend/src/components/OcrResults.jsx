@@ -10,7 +10,7 @@ const OcrResults = () => {
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        const res = await axios.get("${import.meta.env.VITE_API_BASE_URL}/api/ocr/results");
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/ocr/results`);
         setResults(res.data);
       } catch (error) {
         console.error("Failed to fetch OCR results:", error);

@@ -34,15 +34,17 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // --- Middleware Section ---
 
 // 1. Explicitly enable CORS for all preflight requests
-app.options('*', cors({ origin: 'http://localhost:5173', credentials: true })); 
+app.options('*', cors({ origin: 'process.env.FRONTEND_URL', credentials: true })); 
 app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: false, // In production, this should be true if using HTTPS
-        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
-    }
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "Lax", // or "None" if frontend/backend on different subdomains
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  }
 }));
 
 // 2. Set up your main CORS middleware for all other requests
