@@ -13,6 +13,7 @@ authRouter.get('/google/callback',
     }
 );
 const ensureAuth = (req, res, next) => {
+  console.log("ensureAuth called, isAuthenticated:", req.isAuthenticated());
   if (req.isAuthenticated()) {
     return next();
   }
