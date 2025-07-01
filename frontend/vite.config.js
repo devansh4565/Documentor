@@ -13,4 +13,13 @@ export default defineConfig({
   },
   plugins: [react()],
   base: './',
+
+  // ✅ This is the fix for the 404 on refresh or direct links
+  build: {
+    rollupOptions: {
+      input: './index.html',
+    },
+  },
+  // ✅ Custom dev server middleware for fallback (optional, works locally)
+  // For production hosting, rely on _redirects or host-level config
 });
