@@ -35,14 +35,20 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // --- Middleware Section ---
 
 // 1. Explicitly enable CORS for all preflight requests
-app.options('*', cors({ origin: process.env.FRONTEND_URL, credentials: true })); 
+app.options('*', cors({ origin: 'https://documentor-frontend.onrender.com', credentials: true })); 
+
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI,
+    collectionName: 'sessions',
+    ttl: 14 * 24 * 60 * 60 // 14 days
+  }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // true only in production
-    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // cross-site cookies only in production
+    secure: true, // since HTTPS
+    sameSite: 'None', // cross-site cookies
     httpOnly: true,
     maxAge: 86400000
   }
@@ -50,7 +56,7 @@ app.use(session({
 
 // 2. Set up your main CORS middleware for all other requests
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: 'https://documentor-frontend.onrender.com',
   credentials: true
 }));
 
@@ -186,7 +192,6 @@ passport.deserializeUser(async (id, done) => {
         done(err, null);
     }
 });
-
 
 
 // =========================================================================
