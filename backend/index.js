@@ -194,9 +194,12 @@ passport.serializeUser((user, done) => {
 // ✅ THIS IS THE NEW, CORRECT ASYNC/AWAIT SYNTAX
 passport.deserializeUser(async (id, done) => {
     try {
+        console.log("deserializeUser called with id:", id);
         const user = await User.findById(id);
+        console.log("deserializeUser found user:", user ? user.displayName : null);
         done(null, user);
     } catch (err) {
+        console.error("deserializeUser error:", err);
         done(err, null);
     }
 });
