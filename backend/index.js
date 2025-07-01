@@ -40,8 +40,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true, // MUST be true on https!
-    sameSite: 'None', // Required for cross-site cookies
+    secure: process.env.NODE_ENV === 'production', // true only in production
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // cross-site cookies only in production
     httpOnly: true,
     maxAge: 86400000
   }
