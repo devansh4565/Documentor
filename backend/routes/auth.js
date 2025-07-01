@@ -6,10 +6,10 @@ authRouter.get('/google', passport.authenticate('google', { scope: ['profile', '
 
 // The callback route Google will redirect to after successful sign-in
 authRouter.get('/google/callback', 
-    passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login-failed' }),
+    passport.authenticate('google', { failureRedirect: '${process.env.FRONTEND_URL}/login-failed' }),
     (req, res) => {
         // Successful authentication, redirect to the app's main work area.
-        res.redirect('http://localhost:5173/workarea');
+        res.redirect('${process.env.FRONTEND_URL}/workarea');
     }
 );
 const ensureAuth = (req, res, next) => {
