@@ -1,5 +1,3 @@
-// === START OF FINAL, COMBINED FILE: frontend/src/App.jsx ===
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
@@ -16,20 +14,8 @@ import MobileChatView from './components/mobile/MobileChatView';
 import MobileFileList from './components/mobile/MobileFileList';
 import MobilePdfView from './components/mobile/MobilePdfView';
 import LoginPage from "./components/LoginPage";
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || "supersecret", // keep this in env
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI }),
-  cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 day
-}));
 export const UserContext = React.createContext();
-
-
-
 
 // --- Helper Components ---
 const LoadingSpinner = () => (
@@ -56,7 +42,7 @@ const App = () => {
     const isDesktop = useMediaQuery('(min-width: 1024px)');
 
     // This effect checks the user's session once on app load.
- const API = import.meta.env.VITE_API_BASE_URL;
+    const API = import.meta.env.VITE_API_BASE_URL;
 
     useEffect(() => {
         const checkUserSession = async () => {
