@@ -295,7 +295,6 @@ app.get('*', (req, res) => {
 
   res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
-console.log("🧬 Raw profile data:", profile._json);
 
 app.get("/api/auth/google/callback",
   passport.authenticate("google", {
