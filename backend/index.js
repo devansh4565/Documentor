@@ -130,29 +130,39 @@ if (!process.env.SESSION_SECRET) {
 
 
 // --- Add this new Passport configuration block ---
-passport.use(new GoogleStrategy({
+passport.use(new GoogleStrategy(
+  {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: "https://documentor-backend-be2n.onrender.com/api/auth/google/callback"
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
-        let user = await User.findOne({ googleId: profile.id });
-        if (user) {
-            return done(null, user); // User exists, log them in
-        } else {
-            // New user, create them in the database
-            const newUser = new User({
-                googleId: profile.id,
-                displayName: profile.displayName,
-                email: profile.emails[0].value,
-                profilePicture: profile.photos[0].value
-            });
-            await newUser.save();
-            return done(null, newUser);
-        }
+      console.log("🔐 Google profile received:", profile);
+
+      let user = await User.findOne({ googleId: profile.id });
+      if (user) {
+        console.log("👤 Existing user found:", user.displayName);
+        return done(null, user);
+      } else {
+        // Safety check
+        const email = profile.emails?.[0]?.value || "no-email@example.com";
+        const photo = profile.photos?.[0]?.value || "";
+
+        const newUser = new User({
+          googleId: profile.id,
+          displayName: profile.displayName,
+          email: email,
+          profilePicture: photo
+        });
+
+        await newUser.save();
+        console.log("✅ New user created:", newUser.displayName);
+        return done(null, newUser);
+      }
     } catch (err) {
-        return done(err, false);
+      console.error("🔥 Error in GoogleStrategy callback:", err);
+      return done(err, false);
     }
   }
 ));
@@ -285,9 +295,24 @@ app.get('*', (req, res) => {
 
   res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
+console.log("🧬 Raw profile data:", profile._json);
 
+app.get("/api/auth/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "/login", // or your frontend fallback
+    session: false // Optional: disable if you don't want sessions
+  }),
+  (req, res) => {
+    console.log("🎉 Auth success, user:", req.user);
+    res.redirect("https://documentor-frontend.onrender.com/dashboard"); // adjust if needed
+  }
+);
 
 // This should be the VERY LAST route handler
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found", message: `The route ${req.method} ${req.url} does not exist.` });
+});
+app.use((err, req, res, next) => {
+  console.error("💥 Global server error:", err);
+  res.status(500).json({ error: "Something went wrong." });
 });
