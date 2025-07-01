@@ -133,7 +133,7 @@ if (!process.env.SESSION_SECRET) {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/api/auth/google/callback" // This must match your Google Console setup
+    callbackURL: "https://documentor-backend-be2n.onrender.com/api/auth/google/callback"
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
