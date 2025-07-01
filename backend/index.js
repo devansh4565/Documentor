@@ -47,9 +47,10 @@ app.use(session({
 
 // 2. Set up your main CORS middleware for all other requests
 app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
+  origin: process.env.FRONTEND_URL,
+  credentials: true
 }));
+
 
 // The rest of your middleware
 app.use(cookieParser());
