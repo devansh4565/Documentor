@@ -54,6 +54,14 @@ app.use(session({
   }
 }));
 
+// Debug middleware to log session and user info
+app.use((req, res, next) => {
+  console.log("Session ID:", req.sessionID);
+  console.log("Session object:", req.session);
+  console.log("User object:", req.user);
+  next();
+});
+
 // 2. Set up your main CORS middleware for all other requests
 app.use(cors({
   origin: 'https://documentor-frontend.onrender.com',
