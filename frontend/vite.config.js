@@ -4,9 +4,6 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: '/',
-  build: {
-    outDir: 'dist',
-  },
   server: {
     host: '0.0.0.0', // Good for deployment
     port: 5173,
@@ -21,6 +18,7 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: './index.html',
+      outDir: 'dist',
     },
   },
   // ✅ Custom dev server middleware for fallback (optional, works locally)
