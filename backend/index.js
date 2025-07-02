@@ -66,8 +66,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Debug middleware to log session and user info
 app.use((req, res, next) => {
   console.log("Session ID:", req.sessionID);
@@ -284,19 +282,23 @@ app.get('/google/callback',
   (req, res) => {
     console.log("🎉 Auth success, user:", req.user);
 
-    // Small delay ensures session is fully written before redirect
-    setTimeout(() => {
-res.send(`
-  <html>
-    <head>
-      <meta http-equiv="Set-Cookie" content="test=true; SameSite=None; Secure">
-      <script>
-        window.location.href = "${process.env.FRONTEND_URL}/workarea";
-      </script>
-    </head>
-  </html>
-`);
-    }, 500);
+    // ✅ This HTML lets the cookie be set before redirecting
+    res.send(`
+      <html>
+        <head>
+          <title>Redirecting...</title>
+          <script>
+            // Small delay to ensure cookie from backend is saved
+            setTimeout(() => {
+              window.location.href = "${process.env.FRONTEND_URL}/workarea";
+            }, 500);
+          </script>
+        </head>
+        <body>
+          <p>Login successful. Redirecting...</p>
+        </body>
+      </html>
+  `);
   }
 );
 
