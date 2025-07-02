@@ -10,7 +10,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await axios.get(`${process.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'}/api/auth/me`, {
+        // Use runtime config if available, else fallback to env var
+        const baseUrl = window._env_?.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com';
+        const res = await axios.get(`${baseUrl}/api/auth/me`, {
           withCredentials: true,
         });
         setUser(res.data);
