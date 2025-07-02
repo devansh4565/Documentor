@@ -16,9 +16,9 @@ export default defineConfig({
   // ✅ This is the fix for the 404 on refresh or direct links
   build: {
     sourcemap: true,
+    outDir: 'dist',
     rollupOptions: {
       input: './index.html',
-      outDir: 'dist',
     },
   },
   // ✅ Custom dev server middleware for fallback (optional, works locally)
