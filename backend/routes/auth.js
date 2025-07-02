@@ -8,12 +8,31 @@ authRouter.get('/google', passport.authenticate('google', { scope: ['profile', '
 const frontendUrl = 'https://Documentor-frontend.onrender.com';
 
 authRouter.get('/google/callback', 
-    passport.authenticate('google', { failureRedirect:  `${frontendUrl}/login-failed` , session: true}),
-    (req, res) => {
-        // Successful authentication, redirect to the app's main work area.
-        res.redirect(`${frontendUrl}/workarea`);
-    }
+  passport.authenticate('google', { 
+    failureRedirect: `${frontendUrl}/login-failed`,
+    session: true 
+  }),
+  (req, res) => {
+    console.log("🎉 Auth success, user:", req.user);
+    res.send(`
+      <html>
+        <head>
+          <title>Redirecting...</title>
+          <script>
+            // Allow cookie to be stored before redirect
+            setTimeout(() => {
+              window.location.href = "${frontendUrl}/workarea";
+            }, 750); // You can increase to 1000ms if needed
+          </script>
+        </head>
+        <body>
+          <p>Login successful. Redirecting you to the dashboard...</p>
+        </body>
+      </html>
+    `);
+  }
 );
+
 const ensureAuth = (req, res, next) => {
   console.log("ensureAuth called, isAuthenticated:", req.isAuthenticated());
   try {
@@ -49,6 +68,15 @@ authRouter.post('/logout', function(req, res, next) {
     });
   });
 });
+authRouter.get('/debug', (req, res) => {
+  res.json({
+    isAuthenticated: req.isAuthenticated?.(),
+    user: req.user,
+    sessionID: req.sessionID,
+    session: req.session,
+  });
+});
+
 module.exports = {
   router: authRouter,
   ensureAuth
