@@ -28,7 +28,10 @@ const PORT = process.env.PORT;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- Middleware ---
-
+app.use(cors({
+  origin: 'https://documentor-frontend.onrender.com',
+  credentials: true
+}));
 // 1. Explicitly enable CORS for all preflight requests
 app.options('*', cors({ origin: 'https://documentor-frontend.onrender.com', credentials: true }));
 
@@ -54,10 +57,7 @@ app.use(session({
 
 
 // 2. Set up your main CORS middleware for all other requests
-app.use(cors({
-  origin: 'https://documentor-frontend.onrender.com',
-  credentials: true
-}));
+
 
 // The rest of your middleware
 app.use(cookieParser());
