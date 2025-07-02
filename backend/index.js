@@ -33,8 +33,6 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- Middleware ---
 
-// 1. Explicitly enable CORS for all preflight requests
-app.options('*', cors({ origin: 'https://documentor-frontend.onrender.com', credentials: true }));
 
 app.use(session({
   secret: process.env.SESSION_SECRET,
