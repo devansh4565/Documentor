@@ -20,7 +20,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 // --- Main Component ---
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
     // --- State Management ---
-    const API = import.meta.env.VITE_API_BASE_URL;
+const API = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+
+// Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   
   // Sidebar Visibility
