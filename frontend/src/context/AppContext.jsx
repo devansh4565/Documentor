@@ -12,7 +12,7 @@ export const UserProvider = ({ children }) => {
 
     const checkUserSession = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/auth/me`, {
+        const res = await axios.get(`${process.env.REACT_APP_API_BASE_URL }/api/auth/me`, {
           withCredentials: true,
           method: 'GET',
         });

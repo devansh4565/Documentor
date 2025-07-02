@@ -20,7 +20,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 // --- Main Component ---
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
     // --- State Management ---
-const API = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
 
 // Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
   const isDesktop = useMediaQuery('(min-width: 1024px)');

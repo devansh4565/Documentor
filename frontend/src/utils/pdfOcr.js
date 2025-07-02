@@ -9,7 +9,7 @@ export async function extractTextFromPDF(file) {
   const formData = new FormData();
   formData.append("pdf", file);
 
-  const res = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/ocr`, {
+  const res = await fetch(`${process.env.REACT_APP_API_BASE_URL }/api/ocr`, {
     method: "POST",
     body: formData,
   });
