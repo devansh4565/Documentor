@@ -153,9 +153,18 @@ const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
           credentials: "include",
         });
         const sessionsArray = await res.json();
+        console.log("🧪 sessionsArray:", sessionsArray);
 
         // Convert array to object format: { [id]: session }
         const sessionObj = {};
+          if (Array.isArray(sessionsArray)) {
+            sessionsArray.forEach(s => {
+              sessionObj[s._id] = s;
+            });
+          } else {
+            console.error("❌ sessionsArray is not an array:", sessionsArray);
+          }
+
         sessionsArray.forEach(s => sessionObj[s._id] = s);
 
         setInitialSessions(sessionObj);
