@@ -286,7 +286,16 @@ app.get('/google/callback',
 
     // Small delay ensures session is fully written before redirect
     setTimeout(() => {
-      res.redirect(`${process.env.FRONTEND_URL}/workarea`);
+res.send(`
+  <html>
+    <head>
+      <meta http-equiv="Set-Cookie" content="test=true; SameSite=None; Secure">
+      <script>
+        window.location.href = "${process.env.FRONTEND_URL}/workarea";
+      </script>
+    </head>
+  </html>
+`);
     }, 500);
   }
 );
