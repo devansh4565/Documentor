@@ -309,7 +309,7 @@ app.listen(PORT, () => console.log(`✅ Server is listening on http://localhost:
 // This sends all non-API GET requests to the frontend's main HTML file,
 // allowing React Router to handle the URL.
 
-authRouter.get('/google/callback', 
+app.get('/google/callback', 
   passport.authenticate('google', { 
     failureRedirect: `${process.env.FRONTEND_URL}/login-failed`, 
     session: true 
