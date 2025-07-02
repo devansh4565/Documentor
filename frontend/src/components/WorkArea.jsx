@@ -70,7 +70,7 @@ const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_
 const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
 
   useEffect(() => {
-      const sessionIds = Object.keys(initialSessions);
+      const sessionIds = Object.keys(initialSessions || {});
       
       // This effect runs only once when the sessions are first loaded.
       if (sessionIds.length > 0 && !hasAutoSelected.current) {
