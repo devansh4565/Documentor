@@ -24,7 +24,7 @@ const highlightRoutes = require("./routes/highlights"); // Assuming you might ha
 dotenv.config();
 connectDB();
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- Middleware ---
