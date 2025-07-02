@@ -50,7 +50,8 @@ app.use(session({
     secure: true, // since HTTPS
     sameSite: 'None', // cross-site cookies
     httpOnly: true,
-    maxAge: 86400000
+    maxAge: 86400000,
+    domain: '.onrender.com'
   }
 }));
 
@@ -308,14 +309,18 @@ app.listen(PORT, () => console.log(`✅ Server is listening on http://localhost:
 // This sends all non-API GET requests to the frontend's main HTML file,
 // allowing React Router to handle the URL.
 
-app.get("/api/auth/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: `${process.env.FRONTEND_URL}/login`,
-    session: true
+authRouter.get('/google/callback', 
+  passport.authenticate('google', { 
+    failureRedirect: `${process.env.FRONTEND_URL}/login-failed`, 
+    session: true 
   }),
   (req, res) => {
     console.log("🎉 Auth success, user:", req.user);
-    res.redirect(`${process.env.FRONTEND_URL}/workarea`); // adjust if needed
+
+    // Small delay ensures session is fully written before redirect
+    setTimeout(() => {
+      res.redirect(`${process.env.FRONTEND_URL}/workarea`);
+    }, 500);
   }
 );
 
