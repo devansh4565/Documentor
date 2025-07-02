@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/auth/me`, {
+        const res = await axios.get(`${process.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'}/api/auth/me`, {
           withCredentials: true,
         });
         setUser(res.data);
