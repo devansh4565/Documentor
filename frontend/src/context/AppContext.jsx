@@ -14,6 +14,7 @@ export const UserProvider = ({ children }) => {
       try {
         const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/auth/me`, {
           withCredentials: true,
+          method: 'GET',
         });
         if (isMounted) {
           setUser(res.data);
