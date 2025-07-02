@@ -45,9 +45,10 @@ app.use(session({
     secure: true, // since HTTPS
     sameSite: 'None', // cross-site cookies
     httpOnly: true,
-    maxAge: 86400000
+    maxAge: 14 * 24 * 60 * 60 * 1000 // 14 days
     // domain: '.onrender.com'  // Removed domain temporarily for testing
-  }
+  },
+  rolling: true, // Refresh session expiration on each request
 }));
 
 // Debug middleware to log session and user info
