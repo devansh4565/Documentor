@@ -74,7 +74,9 @@ const MindMap = () => {
             setLoading(true);
 
             try {
-                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${sessionId}`);
+                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${sessionId}`, {
+                    credentials: "include"
+                });
                 const aiData = await res.json();
                 if (!aiData) { setLoading(false); return; }
 

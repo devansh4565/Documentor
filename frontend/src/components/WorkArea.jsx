@@ -487,6 +487,7 @@ const handleSendMessage = async () => {
           
           // This can use your existing /api/ask endpoint or a new one
           const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ask`, {
+              credentials: "include", // Ensure cookies are sent for session management
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -541,6 +542,7 @@ const handleSendMessage = async () => {
           // and including the necessary headers and body.
           const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/generate-mindmap`, {
               method: "POST",
+              credentials: "include", // Ensure cookies are sent for session management
               headers: {
                   "Content-Type": "application/json",
               },
@@ -556,6 +558,7 @@ const handleSendMessage = async () => {
           // Save the successfully generated map data
           await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${selectedChat}`, {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ data: mindMapData }),
           });

@@ -3,6 +3,7 @@ export const sendToGPT = async (text) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/gpt-summary`, {
       method: "POST",
+      credentials: "include", // Ensure cookies are sent for session management
       headers: {
         "Content-Type": "application/json",
       },

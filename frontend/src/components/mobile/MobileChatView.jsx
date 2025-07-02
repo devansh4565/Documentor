@@ -15,7 +15,9 @@ const MobileChatView = () => {
     const fetchMessages = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}/messages`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}/messages`, {
+          credentials: 'include', // Ensure cookies are sent for session management
+        });
         const data = await res.json();
         setMessages(data || []);
       } catch (err) {

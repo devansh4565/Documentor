@@ -28,7 +28,9 @@ const MobilePdfView = () => {
         try {
           setLoading(true);
           // Fetch all files for the session and find the one we need
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${sessionId}`);
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${sessionId}`, {
+            credentials: 'include', // Ensure cookies are sent for session management
+          });
           const data = await res.json();
           const targetFile = data.files?.find(f => f._id === fileId);
           if (targetFile) {

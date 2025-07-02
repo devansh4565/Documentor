@@ -11,6 +11,7 @@ export async function extractTextFromPDF(file) {
 
   const res = await fetch(`${process.env.REACT_APP_API_BASE_URL }/api/ocr`, {
     method: "POST",
+    credentials: "include", // Ensure cookies are sent for session management
     body: formData,
   });
 

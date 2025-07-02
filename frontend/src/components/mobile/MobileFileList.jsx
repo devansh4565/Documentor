@@ -13,7 +13,9 @@ const MobileFileList = () => {
     const fetchFiles = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${sessionId}`);
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${sessionId}`, {
+          credentials: 'include', // Ensure cookies are sent for session management
+        });
         const data = await res.json();
         setFiles(data.files || []);
       } catch (err) {
