@@ -1,5 +1,9 @@
 const express = require("express");
 const cors = require("cors");
+app.use(cors({
+  origin: 'https://documentor-frontend.onrender.com',
+  credentials: true
+}));
 const dotenv = require("dotenv");
 const path = require("path");
 const { OpenAI } = require("openai");
@@ -28,10 +32,7 @@ const PORT = process.env.PORT;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- Middleware ---
-app.use(cors({
-  origin: 'https://documentor-frontend.onrender.com',
-  credentials: true
-}));
+
 // 1. Explicitly enable CORS for all preflight requests
 app.options('*', cors({ origin: 'https://documentor-frontend.onrender.com', credentials: true }));
 
@@ -262,7 +263,8 @@ app.use((req, res) => {
 });
 
 // --- Server Listener ---
-app.listen(PORT, () => console.log(`✅ Server is listening on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server is listening on PORT ${PORT}`));
+
 
 // in backend/index.js
 
