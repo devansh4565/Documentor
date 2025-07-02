@@ -36,6 +36,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 
 app.use(session({
+  name: 'connect.sid',
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -45,13 +46,11 @@ app.use(session({
     ttl: 14 * 24 * 60 * 60 // 14 days
   }),
   cookie: {
-    secure: true, // since HTTPS
-    sameSite: 'None', // cross-site cookies
+    secure: true, // ✅ Render uses HTTPS, so this is needed
     httpOnly: true,
-    maxAge: 14 * 24 * 60 * 60 * 1000 // 14 days
-    // domain: '.onrender.com'  // Removed domain temporarily for testing
-  },
-  rolling: true, // Refresh session expiration on each request
+    sameSite: 'None', // ✅ Required for cross-site cookie
+    maxAge: 14 * 24 * 60 * 60 * 1000
+  }
 }));
 
 
