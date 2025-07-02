@@ -5,7 +5,7 @@ const authRouter = express.Router();
 authRouter.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 // The callback route Google will redirect to after successful sign-in
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+const frontendUrl = 'https://documentor-backend-btiq.onrender.com';
 
 authRouter.get('/google/callback', 
     passport.authenticate('google', { failureRedirect:  `${frontendUrl}/login-failed` }),
