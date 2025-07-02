@@ -11,7 +11,11 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       try {
         // Use runtime config if available, else fallback to env var
-        const baseUrl = window._env_?.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com';
+        // Fix: Ensure baseUrl does not have trailing slash
+        let baseUrl = window._env_?.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com';
+        if (baseUrl.endsWith('/')) {
+          baseUrl = baseUrl.slice(0, -1);
+        }
         const res = await axios.get(`${baseUrl}/api/auth/me`, {
           withCredentials: true,
         });
