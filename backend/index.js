@@ -13,6 +13,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const cookieParser = require('cookie-parser');
 const User = require('./models/User');
 const { router: authRoutes, ensureAuth } = require('./routes/auth');
+const app = express();
 app.use(cors({
   origin: 'https://documentor-frontend.onrender.com',
   credentials: true
@@ -27,7 +28,7 @@ const highlightRoutes = require("./routes/highlights"); // Assuming you might ha
 // --- Configuration ---
 dotenv.config();
 connectDB();
-const app = express();
+
 const PORT = process.env.PORT;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
