@@ -50,8 +50,8 @@ app.use(session({
     secure: true, // since HTTPS
     sameSite: 'None', // cross-site cookies
     httpOnly: true,
-    maxAge: 86400000,
-    domain: '.onrender.com'
+    maxAge: 86400000
+    // domain: '.onrender.com'  // Removed domain temporarily for testing
   }
 }));
 
@@ -189,6 +189,7 @@ passport.use(new GoogleStrategy(
 // --- In server/index.js, inside the Passport configuration ---
 
 passport.serializeUser((user, done) => {
+    console.log("serializeUser called with user:", user);
     done(null, user.id);
 });
 
