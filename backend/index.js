@@ -1,9 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-app.use(cors({
-  origin: 'https://documentor-frontend.onrender.com',
-  credentials: true
-}));
+
 const dotenv = require("dotenv");
 const path = require("path");
 const { OpenAI } = require("openai");
@@ -16,7 +13,10 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const cookieParser = require('cookie-parser');
 const User = require('./models/User');
 const { router: authRoutes, ensureAuth } = require('./routes/auth');
-
+app.use(cors({
+  origin: 'https://documentor-frontend.onrender.com',
+  credentials: true
+}));
 // --- Local Imports ---
 const connectDB = require("./config/db");
 const chatRoutes = require("./routes/chatRoutes");
