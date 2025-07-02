@@ -8,7 +8,7 @@ authRouter.get('/google', passport.authenticate('google', { scope: ['profile', '
 const frontendUrl = 'https://Documentor-frontend.onrender.com';
 
 authRouter.get('/google/callback', 
-    passport.authenticate('google', { failureRedirect:  `${frontendUrl}/login-failed` }),
+    passport.authenticate('google', { failureRedirect:  `${frontendUrl}/login-failed` , session: true}),
     (req, res) => {
         // Successful authentication, redirect to the app's main work area.
         res.redirect(`${frontendUrl}/workarea`);
