@@ -656,11 +656,27 @@ const handleSendMessage = async () => {
                 <div className="flex-1 flex flex-col min-h-0">
                     <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
                     <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-                        {Object.entries(initialSessions).filter(([_, session]) => session && session.name).sort((a,b) => new Date(b[1].createdAt) - new Date(a[1].createdAt)).map(([key, session]) => (
-                            <div key={key} onClick={() => { setSelectedChat(key); if (!isDesktop) setMobileDrawer(null); }} className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === key ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}
-                            onContextMenu={(e) => handleRightClick(e, session._id)}>
-                                <p className="text-sm font-medium truncate">{session.name}</p>
-                                <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleString()}</p>
+                    {Object.entries(initialSessions || {}) // 🔒 the fix is here!
+                      .filter(([_, session]) => session && session.name)
+                      .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
+                      .map(([key, session]) => (
+                        <div
+                          key={key}
+                          onClick={() => {
+                            setSelectedChat(key);
+                            if (!isDesktop) setMobileDrawer(null);
+                          }}
+                          className={`p-2 rounded-lg cursor-pointer transition-colors ${
+                            selectedChat === key
+                              ? "bg-blue-200 dark:bg-purple-800"
+                              : "bg-gray-100 dark:bg-gray-700"
+                          }`}
+                          onContextMenu={(e) => handleRightClick(e, session._id)}
+                        >
+                          <p className="text-sm font-medium truncate">{session.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(session.createdAt).toLocaleString()}
+                          </p>
                             </div>
                         ))}
                     </div>
@@ -705,11 +721,27 @@ const handleSendMessage = async () => {
                 <div className="flex-1 flex flex-col min-h-0">
                     <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
                     <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-                        {Object.entries(initialSessions).filter(([_, session]) => session && session.name).sort((a,b) => new Date(b[1].createdAt) - new Date(a[1].createdAt)).map(([key, session]) => (
-                            <div key={key} onClick={() => { setSelectedChat(key); if (!isDesktop) setMobileDrawer(null); }} className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === key ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}
-                            onContextMenu={(e) => handleRightClick(e, session._id)}>
-                                <p className="text-sm font-medium truncate">{session.name}</p>
-                                <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleString()}</p>
+                      {Object.entries(initialSessions || {}) // 🔒 the fix is here!
+                        .filter(([_, session]) => session && session.name)
+                        .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
+                        .map(([key, session]) => (
+                          <div
+                            key={key}
+                            onClick={() => {
+                              setSelectedChat(key);
+                              if (!isDesktop) setMobileDrawer(null);
+                            }}
+                            className={`p-2 rounded-lg cursor-pointer transition-colors ${
+                              selectedChat === key
+                                ? "bg-blue-200 dark:bg-purple-800"
+                                : "bg-gray-100 dark:bg-gray-700"
+                            }`}
+                            onContextMenu={(e) => handleRightClick(e, session._id)}
+                          >
+                            <p className="text-sm font-medium truncate">{session.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(session.createdAt).toLocaleString()}
+                            </p>
                             </div>
                         ))}
                     </div>
