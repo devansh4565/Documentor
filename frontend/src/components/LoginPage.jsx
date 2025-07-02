@@ -4,7 +4,7 @@ const API = import.meta.env.VITE_API_BASE_URL;
 const LoginPage = () => {
   const handleGoogleLogin = () => {
     // This simply redirects the user to our backend's Google auth route
-    window.location.href = 'https://documentor-backend-be2n.onrender.com/api/auth/google';
+    window.location.href = 'https://documentor-backend-btiq.onrender.com/api/auth/google';
   };
 
   return (
