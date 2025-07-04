@@ -5,7 +5,7 @@ const authRouter = express.Router();
 authRouter.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 // The callback route Google will redirect to after successful sign-in
-const frontendUrl = process.env.FRONTEND_URL;
+const frontendUrl = process.env.FRONTEND_URL || 'https://documentor-frontend.onrender.com';
 
 authRouter.get('/google/callback', 
   passport.authenticate('google', { 
