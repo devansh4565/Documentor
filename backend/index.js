@@ -7,6 +7,9 @@ const { OpenAI } = require("openai");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const session = require('express-session');
+
+dotenv.config(); // Load environment variables early
+
 const frontendUrl = process.env.FRONTEND_URL;
 
 const MongoStore = require('connect-mongo');
@@ -28,7 +31,6 @@ const fileRoutes = require("./routes/files");
 const highlightRoutes = require("./routes/highlights"); // Assuming you might have this
 
 // --- Configuration ---
-dotenv.config();
 connectDB();
 
 const PORT = process.env.PORT;
@@ -140,7 +142,7 @@ passport.use(new GoogleStrategy(
   {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.BACKEND_URL}/api/auth/google/callback`
+    callbackURL: "https://documentor-backend-btiq.onrender.com/api/auth/google/callback"
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
