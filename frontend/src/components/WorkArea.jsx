@@ -247,51 +247,83 @@ useEffect(() => {
 }, [API, setInitialSessions]); // Keep dependencies as they are
 
   // Effect to fetch all necessary data when a chat session is selected
-  useEffect(() => {
-    const fetchSessionDataWithAuth = async () => {
-      if (!selectedChat || selectedChat.length !== 24 || !authReady || !firebaseUser) {
-        setSessionFiles([]);
-        setMessages([]);
-        setHighlightedPhrases([]);
-        setSelectedFile(null);
-        return;
-      }
-      try {
+useEffect(() => {
+    const fetchSessionData = async () => {
+        // Guard Clause: Don't run if there's no selected chat or if auth isn't fully ready.
+        if (!selectedChat || !authReady || !firebaseUser) {
+            setSessionFiles([]);
+            setMessages([]);
+            setHighlightedPhrases([]);
+            setSelectedFile(null);
+            return;
+        }
+
+        console.log(`Attempting to fetch all data for session: ${selectedChat}`);
         setLoading(true);
-        const token = await getIdToken();
-        const headers = { Authorization: `Bearer ${token}` };
 
-        const [filesRes, messagesRes, highlightsRes] = await Promise.all([
-          fetch(`${API}/api/files/${selectedChat}`, { headers }),
-          fetch(`${API}/api/chats/${selectedChat}/messages`, { headers }),
-          fetch(`${API}/api/highlights/${selectedChat}`, { headers }),
-        ]);
+        try {
+            // Get the token. The hook ensures this is safe to call.
+            const token = await getIdToken();
 
-        const filesData = await filesRes.json();
-        setSessionFiles(filesData.files || []);
+            // --- CRITICAL FIX #1 ---
+            // If we don't get a token back, we are not authenticated.
+            // Do not proceed with the API calls.
+            if (!token) {
+                throw new Error("User not authenticated. Cannot fetch session data.");
+            }
+            // -------------------------
 
-        const messagesData = await messagesRes.json();
-        const formattedMessages = (messagesData || []).map(dbMsg => ({
-          sender: dbMsg.role,
-          text: dbMsg.content,
-          _id: dbMsg._id
-        }));
-        setMessages(formattedMessages);
+            // Create the headers object now that we know we have a valid token.
+            const authHeaders = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
 
-        const highlightsData = await highlightsRes.json();
-        setHighlightedPhrases(highlightsData.highlights || []);
-      } catch (err) {
-        console.error("Failed to fetch session data with auth:", err);
-        setSessionFiles([]);
-        setMessages([]);
-        setHighlightedPhrases([]);
-      } finally {
-        setLoading(false);
-      }
+            // --- CRITICAL FIX #2 ---
+            // Pass the `authHeaders` object to ALL protected fetch calls inside Promise.all.
+            const [filesRes, messagesRes, highlightsRes] = await Promise.all([
+                fetch(`${API}/api/files/${selectedChat}`, { headers: authHeaders }),
+                fetch(`${API}/api/chats/${selectedChat}/messages`, { headers: authHeaders }),
+                fetch(`${API}/api/highlights/${selectedChat}`, { headers: authHeaders }),
+            ]);
+            // -------------------------
+
+            // Check each response individually for errors before parsing JSON.
+            if (!filesRes.ok) throw new Error(`Failed to fetch files: ${filesRes.statusText}`);
+            if (!messagesRes.ok) throw new Error(`Failed to fetch messages: ${messagesRes.statusText}`);
+            if (!highlightsRes.ok) throw new Error(`Failed to fetch highlights: ${highlightsRes.statusText}`);
+            
+            // Now it's safe to parse all the JSON data.
+            const filesData = await filesRes.json();
+            const messagesData = await messagesRes.json();
+            const highlightsData = await highlightsRes.json();
+
+            // Safely set state, falling back to an empty array if the data is null/undefined.
+            setSessionFiles(filesData.files || []);
+
+            const formattedMessages = (messagesData || []).map(dbMsg => ({
+                sender: dbMsg.role,
+                text: dbMsg.content,
+                _id: dbMsg._id
+            }));
+            setMessages(formattedMessages);
+
+            setHighlightedPhrases(highlightsData.highlights || []);
+
+        } catch (err) {
+            console.error("Failed to fetch session data:", err);
+            // Clear data on error to avoid showing stale information
+            setSessionFiles([]);
+            setMessages([]);
+            setHighlightedPhrases([]);
+        } finally {
+            setLoading(false);
+        }
     };
-    fetchSessionDataWithAuth();
-  }, [selectedChat, authReady, firebaseUser, getIdToken]);
 
+    fetchSessionData();
+
+}, [selectedChat, authReady, firebaseUser, getIdToken, API]); // Ensure all dependencies are listed
   // Effect to scroll to the bottom of the chat window on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
