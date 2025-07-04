@@ -302,22 +302,8 @@ app.get('/google/callback',
     console.log("🎉 Auth success, user:", req.user);
 
     // ✅ This HTML lets the cookie be set before redirecting
-    res.send(`
-      <html>
-        <head>
-          <title>Redirecting...</title>
-          <script>
-            // Small delay to ensure cookie from backend is saved
-            setTimeout(() => {
-              window.location.href = "${process.env.FRONTEND_URL}/workarea";
-            }, 500);
-          </script>
-        </head>
-        <body>
-          <p>Login successful. Redirecting...</p>
-        </body>
-      </html>
-  `);
+    res.redirect(`${process.env.FRONTEND_URL}/workarea`);
+
   }
 );
 
