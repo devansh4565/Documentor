@@ -1,17 +1,37 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+// src/firebase.js
 
-// TODO: Replace the following with your app's Firebase project configuration
+import { initializeApp } from "firebase/app";
+import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { getAnalytics } from "firebase/analytics";
+
+// Your web app's Firebase configuration is read from secure environment variables.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 
-export { auth };
+// Initialize and export Firebase Authentication
+// This is the missing piece that WorkArea needs.
+export const auth = getAuth(app);
+
+// Optional: Initialize Analytics
+const analytics = getAnalytics(app);
+
+// Set auth persistence (optional but good practice)
+setPersistence(auth, browserSessionPersistence)
+  .then(() => {
+    console.log("Firebase auth persistence set to session.");
+  })
+  .catch((error) => {
+    console.error("Firebase auth persistence error:", error);
+  });
+
+export default app;
