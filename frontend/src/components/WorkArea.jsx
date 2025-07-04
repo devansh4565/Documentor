@@ -8,6 +8,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import axios from "axios";
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
+import { auth } from '../firebase';  // Import Firebase auth
 
 // CSS Imports for react-pdf are essential for rendering
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -18,12 +19,30 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 
 
 // --- Main Component ---
+import { getAuth } from "firebase/auth";
+
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
     // --- State Management ---
 const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
 
 // Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+
+  // Helper function to get Firebase ID token
+  const getIdToken = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.warn("No Firebase user currently signed in.");
+      return null;
+    }
+    try {
+      const token = await currentUser.getIdToken();
+      return token;
+    } catch (error) {
+      console.error("Error getting Firebase ID token:", error);
+      return null;
+    }
+  };
   
   // Sidebar Visibility
   const [leftOpen, setLeftOpen] = useState(true);
@@ -145,90 +164,95 @@ const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
     }
   }, [isDesktop]);
   useEffect(() => {
-    const fetchInitialSessions = async () => {
+    // Remove original fetchInitialSessions function and call
+
+    // Add updated fetchInitialSessionsWithAuth function and call
+    const fetchInitialSessionsWithAuth = async () => {
       if (initialSessions && Object.keys(initialSessions).length > 0) return; // Already loaded
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, {
+        const token = await getIdToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`${API}/api/chats`, {
           credentials: "include",
+          headers,
         });
         const sessionsArray = await res.json();
-        console.log("🧪 sessionsArray:", sessionsArray);
+        console.log("🧪 sessionsArray with auth:", sessionsArray);
 
-        // Convert array to object format: { [id]: session }
         const sessionObj = {};
-          if (Array.isArray(sessionsArray)) {
-            sessionsArray.forEach(s => {
-              sessionObj[s._id] = s;
-            });
-          } else {
-            console.error("❌ sessionsArray is not an array:", sessionsArray);
-          }
-
-        sessionsArray.forEach(s => sessionObj[s._id] = s);
+        if (Array.isArray(sessionsArray)) {
+          sessionsArray.forEach(s => {
+            sessionObj[s._id] = s;
+          });
+        } else {
+          console.error("❌ sessionsArray is not an array:", sessionsArray);
+        }
 
         setInitialSessions(sessionObj);
 
-        // Auto-select the first session if none selected
         if (sessionsArray.length > 0 && !selectedChat) {
           setSelectedChat(sessionsArray[0]._id);
         }
       } catch (err) {
-        console.error("❌ Failed to auto-fetch initial sessions:", err);
+        console.error("❌ Failed to auto-fetch initial sessions with auth:", err);
       }
     };
 
-    fetchInitialSessions();
+    fetchInitialSessionsWithAuth();
   }, [initialSessions, selectedChat]);
   // Effect to fetch all necessary data when a chat session is selected
   useEffect(() => {
-    const fetchSessionData = async () => {
+    // Remove original fetchSessionData function and call
+
+    // Add updated fetchSessionDataWithAuth function and call
+    const fetchSessionDataWithAuth = async () => {
       if (!selectedChat) return;
 
       if (!selectedChat || selectedChat.length !== 24) {
-        // Clear all session-specific data if no valid chat is selected
         setSessionFiles([]);
         setMessages([]);
         setHighlightedPhrases([]);
-        setSelectedFile(null); // Also clear the selected file
+        setSelectedFile(null);
         return;
       }
       try {
-        console.log("Fetching session data for selectedChat:", selectedChat);
         setLoading(true);
+        const token = await getIdToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
         const [filesRes, messagesRes, highlightsRes] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/files/${selectedChat}`, {
-            credentials: "include"
+          fetch(`${API}/api/files/${selectedChat}`, {
+            credentials: "include",
+            headers,
           }),
-          
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`, {
-            credentials: "include"
+          fetch(`${API}/api/chats/${selectedChat}/messages`, {
+            credentials: "include",
+            headers,
           }),
-          fetch(`${import.meta.env.VITE_API_BASE_URL}/api/highlights/${selectedChat}`, {
-            credentials: "include"
+          fetch(`${API}/api/highlights/${selectedChat}`, {
+            credentials: "include",
+            headers,
           }),
         ]);
 
-        
         const filesData = await filesRes.json();
         setSessionFiles(filesData.files || []);
 
         const messagesData = await messagesRes.json();
 
-        // ✅ THIS IS THE CRUCIAL FIX. We transform the data here.
         const formattedMessages = (messagesData || []).map(dbMsg => ({
-          sender: dbMsg.role,  // from "role"
-          text: dbMsg.content, // from "content"
+          sender: dbMsg.role,
+          text: dbMsg.content,
           _id: dbMsg._id
         }));
 
         setMessages(formattedMessages);
-        
+
         const highlightsData = await highlightsRes.json();
         setHighlightedPhrases(highlightsData.highlights || []);
-      } catch (err) { 
-        console.error("Failed to fetch session data:", err); 
-        // Reset state on error to prevent inconsistent UI
+      } catch (err) {
+        console.error("Failed to fetch session data with auth:", err);
         setSessionFiles([]);
         setMessages([]);
         setHighlightedPhrases([]);
@@ -236,7 +260,7 @@ const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
         setLoading(false);
       }
     };
-    fetchSessionData();
+    fetchSessionDataWithAuth();
   }, [selectedChat]);
 
   // Effect to scroll to the bottom of the chat window on new messages
@@ -329,56 +353,49 @@ const createChat = async () => {
     finally { setContextMenu(null); }
   });
   
-  // --- The Final onDrop function ---
-// in frontend/src/components/WorkArea.jsx
-
-// --- The Final onDrop function ---
     const onDrop = useCallback(async (acceptedFiles) => {
-        if (!selectedChat) {
-          alert("Please select a chat session first before uploading files.");
+      if (!selectedChat) {
+        alert("Please select a chat session first before uploading files.");
+        return;
+      }
+      if (acceptedFiles.length === 0) return;
+
+      const file = acceptedFiles[0];
+      setIsUploading(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("sessionId", selectedChat);
+
+      try {
+        const token = await getIdToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const res = await fetch(`${API}/api/ocr`, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+          headers,
+        });
+
+        if (!res.ok) throw new Error("File upload failed on the server.");
+
+        const newFileFromDB = await res.json();
+        if (!newFileFromDB._id || !newFileFromDB.name || !newFileFromDB.url) {
+          alert("Upload failed: incomplete file data received.");
           return;
         }
-        if (acceptedFiles.length === 0) return;
 
-        const file = acceptedFiles[0];
-        setIsUploading(true);
+        setSessionFiles(prevFiles => [...prevFiles, newFileFromDB]);
+        setSelectedFile(newFileFromDB);
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("sessionId", selectedChat);
-
-        try {
-            // The fetch call itself doesn't need to change.
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ocr`, { 
-                method: "POST", 
-                body: formData,
-                // IMPORTANT: Make sure your fetch sends credentials if it's not already
-                credentials: 'include' 
-            });
-
-            if (!res.ok) throw new Error("File upload failed on the server.");
-            
-            // `newFileFromDB` will now be the full document object from the database,
-            // including `_id`, `name`, `url`, `content`, etc.
-            const newFileFromDB = await res.json();
-            if (!newFileFromDB._id || !newFileFromDB.name || !newFileFromDB.url) {
-                        alert("Upload failed: incomplete file data received.");
-                        return;
-                      }
-            
-            // Add the new, complete file object to the session files list
-            setSessionFiles(prevFiles => [...prevFiles, newFileFromDB]);
-            
-            // Automatically select the new file. It now has the correct `.url` property.
-            setSelectedFile(newFileFromDB);
-
-        } catch (err) {
-            console.error("onDrop handler failed:", err);
-            alert(`Upload Error: ${err.message}`);
-        } finally {
-            setIsUploading(false);
-        }
-    }, [selectedChat]); // Make sure selectedChat is in the dependency array
+      } catch (err) {
+        console.error("onDrop handler failed:", err);
+        alert(`Upload Error: ${err.message}`);
+      } finally {
+        setIsUploading(false);
+      }
+    }, [selectedChat]);
   
 // --- The Debug Version of handleSendMessage ---
 
@@ -414,21 +431,23 @@ const handleSendMessage = async () => {
         // A. Save user's message
         await axios.post(
           `${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`,
-          { role: "user", content: userMessageText }
+          { role: "user", content: userMessageText },
+          { headers: { Authorization: `Bearer ${await getIdToken()}` } }
         );
 
         // B. Call the AI
-        const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/ask`, {
+        const res = await axios.post(`${API}/api/ask`, {
             history: historyForAPI,
             fileContent: selectedFile?.content || "",
-        });
+        }, { headers: { Authorization: `Bearer ${await getIdToken()}` } });
 
         const botResponseText = res.data.response || "Sorry, I couldn't get a response.";
 
         // C. Save the bot's response
         await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`,
-          { role: "assistant", content: botResponseText }
+          `${API}/api/chats/${selectedChat}/messages`,
+          { role: "assistant", content: botResponseText },
+          { headers: { Authorization: `Bearer ${await getIdToken()}` } }
         );
         
         // --- 5. Animate the response ---
@@ -489,7 +508,10 @@ const handleSendMessage = async () => {
           const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ask`, {
               credentials: "include", // Ensure cookies are sent for session management
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${await getIdToken()}`
+              },
               body: JSON.stringify({
                   // We construct a special "history" to ask for a summary
                   history: [{ role: 'user', content: 'Please provide a concise summary of the key points from all the provided document texts.' }],
@@ -508,10 +530,10 @@ const handleSendMessage = async () => {
           setMessages(prev => [...prev, summaryMsg]);
           
           // Save summary to the database
-          await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`, {
+          await axios.post(`${API}/api/chats/${selectedChat}/messages`, {
               role: 'assistant',
               content: `Summary of ${fileNames}:\n\n${summaryText}`
-          });
+          }, { headers: { Authorization: `Bearer ${await getIdToken()}` } });
 
       } catch (err) {
           console.error("Multi-file summary failed:", err);
