@@ -1,55 +1,36 @@
-// --- FILE: frontend/src/components/Header.jsx ---
+import React from 'react';
+import { getAuth, signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
-import React, { useState } from 'react';
-import axios from 'axios';
-const API = import.meta.env.VITE_API_BASE_URL;
+const Header = ({ user }) => { // Assume user object is passed as a prop
+    const navigate = useNavigate();
+    const auth = getAuth();
 
-const Header = ({ user }) => {
-    const [imgError, setImgError] = useState(false);
-    
     const handleLogout = async () => {
         try {
-            // This POST request clears the session on the backend
-            await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`, {}, { withCredentials: true });
-            
-            // This forces a reload. The App component will then see the user is gone and redirect to /login
-            window.location.href = '/login'; 
-        } catch (err) {
-            console.error("Logout failed:", err);
-            // Even if backend fails, force a redirect
-            window.location.href = '/login'; 
+            await signOut(auth);
+            // After sign out, redirect to the login page.
+            navigate('/login');
+        } catch (error) {
+            console.error('Logout failed:', error);
         }
     };
 
-    if (!user) return null; // Should not happen in a protected route, but good practice
-    const initials = user.displayName?.split(' ').map(n => n[0]).join('').toUpperCase() || '';
-
     return (
-        <div className="w-full flex-shrink-0 bg-white dark:bg-gray-800 p-3 shadow-md flex justify-between items-center border-b dark:border-gray-700">
-            <div className="flex items-center gap-3">
-                {!imgError ? (
-                    <img 
-                        src={user.profilePicture} 
-                        alt="profile" 
-                        className="w-8 h-8 rounded-full"
-                        // ✅ This runs if the image fails to load (like with a 429 error)
-                        onError={() => setImgError(true)}
-                    />
-                ) : (
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-sm">
-                        {initials}
-                    </div>
+        <header className="flex-shrink-0 flex items-center justify-between p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-b dark:border-gray-700">
+            <h1 className="text-xl font-bold">Documentor</h1>
+            <div className="flex items-center gap-4">
+                {user && (
+                    <span className="text-sm font-medium hidden sm:inline">{user.email}</span>
                 )}
-                
-                <span className="font-semibold text-sm">Welcome, {user.displayName}</span>
+                <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-colors"
+                >
+                    Logout
+                </button>
             </div>
-            <button 
-                onClick={handleLogout} 
-                className="bg-red-500 text-white px-3 py-1.5 text-sm rounded-lg font-semibold hover:bg-red-600 transition-colors"
-            >
-                Logout
-            </button>
-        </div>
+        </header>
     );
 };
 

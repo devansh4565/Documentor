@@ -33,7 +33,7 @@ app.use(cors({
 const connectDB = require("./config/db");
 const chatRoutes = require("./routes/chatRoutes");
 const ocrRoutes = require("./routes/ocr");
-const fileRoutes = require("./routes/files");
+const filesRoutes = require('./routes/files');
 const highlightRoutes = require("./routes/highlights"); // Assuming you might have this
 
 // --- Configuration ---
@@ -103,7 +103,7 @@ console.log("✅ Auth routes registered to /api/auth");
 // --- API Routes ---
 app.use("/api/chats", chatRoutes);
 app.use("/api/ocr", ocrRoutes);
-app.use("/api/files", fileRoutes);
+app.use('/api/files', filesRoutes);
 app.use("/api/highlights", highlightRoutes);
 
 function estimateTokenCount(text) {

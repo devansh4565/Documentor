@@ -22,72 +22,49 @@ const LoadingSpinner = () => (
     </div>
 );
 
+// A component to protect routes
 const ProtectedRoute = ({ children }) => {
-    const { user, loading } = useContext(UserContext);
-    if (loading) {
-        return <LoadingSpinner />;
-    }
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
-    return children;
+    const { user, authReady } = useFirebaseUser();
+    if (!authReady) return <LoadingSpinner />;
+    return user ? children : <Navigate to="/login" replace />;
 };
 
 const App = () => {
-    const isDesktop = useMediaQuery('(min-width: 1024px)');
-    // This state is defined in the correct place.
     const [initialSessions, setInitialSessions] = useState({});
 
     return (
-        <UserProvider>
-            <ThemeProvider>
-                <Router>
-                    <Routes>
-                        {/* Public routes */}
-                        <Route path="/" element={<UploadSection />} />
-                        <Route path="/login" element={<LoginPage />} />
+        <ThemeProvider>
+            <Router>
+                <Routes>
+                    {/* Public route for logging in */}
+                    <Route path="/login" element={<LoginPage />} />
 
-                        {/* Protected routes */}
-                        <Route
-                            path="/*"
-                            element={
-                                <ProtectedRoute>
-                                    <Routes>
-                                        {isDesktop ? (
-                                            <>
-                                                {/* --- THIS IS THE FIX --- */}
-                                                <Route
-                                                    path="/workarea"
-                                                    element={
-                                                        <WorkArea
-                                                            initialSessions={initialSessions}
-                                                            setInitialSessions={setInitialSessions}
-                                                        />
-                                                    }
-                                                />
-                                                {/* ------------------------- */}
-                                                
-                                                <Route path="/mindmap" element={<MindMap />} />
-                                                <Route path="*" element={<Navigate to="/workarea" replace />} />
-                                            </>
-                                        ) : (
-                                            <>
-                                                {/* You may need to pass these props to mobile components as well if they need them */}
-                                                <Route path="/mobile/chats" element={<MobileChatList />} />
-                                                <Route path="/mobile/chat/:sessionId" element={<MobileChatView />} />
-                                                <Route path="/mobile/chat/:sessionId/files" element={<MobileFileList />} />
-                                                <Route path="/mobile/chat/:sessionId/file/:fileId" element={<MobilePdfView />} />
-                                                <Route path="*" element={<Navigate to="/mobile/chats" replace />} />
-                                            </>
-                                        )}
-                                    </Routes>
-                                </ProtectedRoute>
-                            }
-                        />
-                    </Routes>
-                </Router>
-            </ThemeProvider>
-        </UserProvider>
+                    {/* Protected routes */}
+                    <Route 
+                        path="/workarea"
+                        element={
+                            <ProtectedRoute>
+                                <WorkArea
+                                    initialSessions={initialSessions}
+                                    setInitialSessions={setInitialSessions}
+                                />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/mindmap"
+                        element={
+                            <ProtectedRoute>
+                                <MindMap />
+                            </ProtectedRoute>
+                        }
+                    />
+                    
+                    {/* Default route redirects based on login status */}
+                    <Route path="*" element={<Navigate to="/workarea" replace />} />
+                </Routes>
+            </Router>
+        </ThemeProvider>
     );
 };
 

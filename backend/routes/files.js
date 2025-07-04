@@ -1,22 +1,30 @@
-const express = require("express");
-const mongoose = require("mongoose");
+const express = require('express');
 const router = express.Router();
-const UploadedFile = require("../models/UploadedFile");
-const { ensureAuth } = require("./auth");
+const File = require('../models/File');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 
-router.get("/:sessionId", ensureAuth, async (req, res) => {
-  try {
-    const sessionId = req.params.sessionId;
+// Apply auth middleware to all routes in this file
+router.use(verifyFirebaseToken);
 
-    // Only use ObjectId if your DB stores sessionId as ObjectId
-    const files = await UploadedFile.find({ sessionId }); // ← no conversion
+// --- THIS IS THE NEW ROUTE THAT FIXES THE BUG ---
+// GET /api/files/:sessionId
+// Fetches all files associated with a specific chat session for the logged-in user.
+router.get('/:sessionId', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const userId = req.user.uid;
 
-    res.status(200).json({ files });
-  } catch (err) {
-    console.error("❌ Error fetching files:", err.message);
-    res.status(500).json({ error: "Failed to fetch files" });
-  }
+        const files = await File.find({
+            sessionId: sessionId,
+            user: userId // Ensures users can only get their own files
+        });
+
+        res.status(200).json(files); // Send the array of files back
+
+    } catch (error) {
+        console.error('Error fetching files for session:', error);
+        res.status(500).json({ message: 'Server error while fetching files.' });
+    }
 });
-
 
 module.exports = router;
