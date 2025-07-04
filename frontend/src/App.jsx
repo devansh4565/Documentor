@@ -1,4 +1,4 @@
-import React, { useContext ,  useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import { ThemeProvider } from './context/ThemeContext';
@@ -35,6 +35,7 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
     const isDesktop = useMediaQuery('(min-width: 1024px)');
+    // This state is defined in the correct place.
     const [initialSessions, setInitialSessions] = useState({});
 
     return (
@@ -42,11 +43,11 @@ const App = () => {
             <ThemeProvider>
                 <Router>
                     <Routes>
-                        {/* Public routes visible when logged out */}
+                        {/* Public routes */}
                         <Route path="/" element={<UploadSection />} />
                         <Route path="/login" element={<LoginPage />} />
 
-                        {/* All protected routes are grouped here */}
+                        {/* Protected routes */}
                         <Route
                             path="/*"
                             element={
@@ -54,12 +55,24 @@ const App = () => {
                                     <Routes>
                                         {isDesktop ? (
                                             <>
-                                                <Route path="/workarea" element={<WorkArea />} />
+                                                {/* --- THIS IS THE FIX --- */}
+                                                <Route
+                                                    path="/workarea"
+                                                    element={
+                                                        <WorkArea
+                                                            initialSessions={initialSessions}
+                                                            setInitialSessions={setInitialSessions}
+                                                        />
+                                                    }
+                                                />
+                                                {/* ------------------------- */}
+                                                
                                                 <Route path="/mindmap" element={<MindMap />} />
                                                 <Route path="*" element={<Navigate to="/workarea" replace />} />
                                             </>
                                         ) : (
                                             <>
+                                                {/* You may need to pass these props to mobile components as well if they need them */}
                                                 <Route path="/mobile/chats" element={<MobileChatList />} />
                                                 <Route path="/mobile/chat/:sessionId" element={<MobileChatView />} />
                                                 <Route path="/mobile/chat/:sessionId/files" element={<MobileFileList />} />
