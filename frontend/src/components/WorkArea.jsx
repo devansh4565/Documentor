@@ -19,11 +19,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 
 
 // --- Main Component ---
-import { getAuth } from "firebase/auth";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 import useFirebaseUser from "../hooks/useFirebaseUser"; // adjust path as needed
-
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   // --- State Management ---
