@@ -21,7 +21,8 @@ const { router: authRoutes, ensureAuth } = require('./routes/auth');
 const app = express();
 app.use(cors({
   origin: process.env.FRONTEND_URL,
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 // --- Local Imports ---
 const connectDB = require("./config/db");
