@@ -1,39 +1,61 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import React, { createContext, useState, useEffect } from 'react';
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
-const AuthContext = createContext();
-
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Use runtime config if available, else fallback to env var
-        // Fix: Ensure baseUrl does not have trailing slash
-        let baseUrl = window._env_?.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com';
-        if (baseUrl.endsWith('/')) {
-          baseUrl = baseUrl.slice(0, -1);
-        }
-        const res = await axios.get(`${baseUrl}/api/auth/me`, {
-          withCredentials: true,
-        });
-        setUser(res.data);
-      } catch (err) {
-        setUser(null);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, setUser, authLoading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyD4gD7Lztb7BBKScmjJrC8c_bpcEJAbIBY",
+  authDomain: "documentor-75e23.firebaseapp.com",
+  projectId: "documentor-75e23",
+  storageBucket: "documentor-75e23.firebasestorage.app",
+  messagingSenderId: "967473245070",
+  appId: "1:967473245070:web:f81b2431b15f3692db92df",
+  measurementId: "G-JGTSDS7X4R"
 };
 
-export const useAuth = () => useContext(AuthContext);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+export const UserContext = createContext();
+
+export const UserProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const login = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
+  return (
+    <UserContext.Provider value={{ user, loading, login, logout }}>
+      {children}
+    </UserContext.Provider>
+  );
+};
