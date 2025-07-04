@@ -683,13 +683,310 @@ const handleSendMessage = async () => {
       )}
 
 
-    return (
-      <div className={`h-screen w-full flex overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-blue-50'} transition-colors duration-300`}>
-          
-        {/* Backdrop for mobile drawers */}
-        {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"></div>}
-        
+return (
+  <>
+    {loginButton}
+    <div className={`h-screen w-full flex overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-blue-50'} transition-colors duration-300`}>
+      {/* Backdrop for mobile drawers */}
+      {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"></div>}
+
         {/* --- Primary Layout --- */}
+        {/* Desktop Left Sidebar (always in DOM for transitions) */}
+<aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
+  <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
+    {/* File List Section */}
+    <div>
+      <h2 className="text-xl font-bold text-center mb-4">File List</h2>
+      <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
+        <input {...getInputProps()} />
+        <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
+      </div>
+      <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
+        {sessionFiles.map((file) => {
+          const isSelectedForSummary = selectedFilesForSummary.some(f => f._id && file._id && f._id === file._id);
+          const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
+          return (
+            <div key={file._id || `${file.name}-${file.size}-${Date.now()}`} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+              <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
+                <p className="font-medium text-sm truncate">{file.name}</p>
+                <p className="text-xs text-gray-500">{file.size}</p>
+              </div>
+              <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+    {/* Previous Chats Section */}
+    <div className="flex-1 flex flex-col min-h-0">
+      <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
+        {Object.entries(initialSessions || {})
+          .filter(([_, session]) => session && session.name && session.createdAt)
+          .sort((a, b) => new Date(b[1].createdAt || 0) - new Date(a[1].createdAt || 0))
+          .map(([key, session]) => (
+            <div
+              key={key}
+              onClick={() => {
+                setSelectedChat(key);
+                if (!isDesktop) setMobileDrawer(null);
+              }}
+              className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === key ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}
+              onContextMenu={(e) => handleRightClick(e, session._id)}
+            >
+              <p className="text-sm font-medium truncate">{session.name}</p>
+              <p className="text-xs text-gray-500">{session.createdAt ? new Date(session.createdAt).toLocaleString() : "No date"}</p>
+            </div>
+          ))}
+      </div>
+    </div>
+  </div>
+  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+    <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
+  </div>
+</aside>
+
+
+       {/* Mobile Left Drawer */}
+<aside className={`fixed top-0 left-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'left' ? 'translate-x-0' : '-translate-x-full'}`}>
+  <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
+    {/* File List Section */}
+    <div>
+      <h2 className="text-xl font-bold text-center mb-4">File List</h2>
+      <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
+        <input {...getInputProps()} />
+        <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
+      </div>
+      <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
+        {sessionFiles.map((file) => {
+          const isSelectedForSummary = selectedFilesForSummary.some(f => f._id && file._id && f._id === file._id);
+          const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
+          return (
+            <div key={file._id || `${file.name}-${file.size}-${Date.now()}`} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+              <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
+                <p className="font-medium text-sm truncate">{file.name}</p>
+                <p className="text-xs text-gray-500">{file.size}</p>
+              </div>
+              <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+    {/* Previous Chats Section */}
+    <div className="flex-1 flex flex-col min-h-0">
+      <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
+        {Object.entries(initialSessions || {})
+          .filter(([_, session]) => session && session.name && session.createdAt)
+          .sort((a, b) => new Date(b[1].createdAt || 0) - new Date(a[1].createdAt || 0))
+          .map(([key, session]) => (
+            <div
+              key={key}
+              onClick={() => {
+                setSelectedChat(key);
+                if (!isDesktop) setMobileDrawer(null);
+              }}
+              className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === key ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}
+              onContextMenu={(e) => handleRightClick(e, session._id)}
+            >
+              <p className="text-sm font-medium truncate">{session.name}</p>
+              <p className="text-xs text-gray-500">{session.createdAt ? new Date(session.createdAt).toLocaleString() : "No date"}</p>
+            </div>
+          ))}
+      </div>
+    </div>
+  </div>
+  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+    <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
+  </div>
+</aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+          <Header user={user} />
+            {/* ... mobile menu buttons ... */}
+            
+            {/* This ensures any changes to `selectedFile` force a re-render of this section */}
+            <div className="flex-1 flex flex-col h-full">
+                {selectedFile ? (
+                    <div className="flex flex-col h-full p-4">
+                        <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
+                        <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
+                            {containerWidth > 0 && selectedFile?.url && (
+                              <Document
+                                file={`${import.meta.env.VITE_API_BASE_URL}${selectedFile.url}`}
+                                onLoadSuccess={onDocumentLoadSuccess}
+                                key={selectedFile._id}
+                              >
+                                <Page pageNumber={pageNumber} width={containerWidth} />
+                              </Document>
+                            )}
+                        </div>
+                          {numPages && (
+                              <div className="flex-shrink-0 mt-2 flex justify-center">
+                                  <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md">
+                                      <button
+                                          key="prev-page"
+                                          onClick={goToPrevPage}
+                                          disabled={pageNumber <= 1}
+                                          className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                      >
+                                          Prev
+                                      </button>
+                                      <span className="px-4 font-semibold text-sm">
+                                          Page {pageNumber} of {numPages}
+                                      </span>
+                                      <button
+                                          key="next-page"
+                                          onClick={goToNextPage}
+                                          disabled={pageNumber >= numPages}
+                                          className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                      >
+                                          Next
+                                      </button>
+                                  </div>
+                              </div>
+                          )}
+                    </div>
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center p-4 text-center">
+                        <h2 className="text-xl font-semibold text-gray-400">Select a file to get started</h2>
+                    </div>
+                )}
+            </div>
+        </main>
+
+        {/* Desktop Right Sidebar */}
+<aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
+  <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+    <h2 className="text-xl font-bold">Chat</h2>
+    <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
+      Export
+    </button>
+  </div>
+  <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+    {messages.map((msg, idx) => (
+      <div key={msg._id || idx} className={`...`}>
+        <p className="text-sm">{msg.text}</p>
+      </div>
+    ))}
+
+    {loading && (
+      <div key="loading-dots" className="flex items-center gap-2 p-3">
+        <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+        <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+        <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div>
+      </div>
+    )}
+
+    {botTyping && (
+      <div key="bot-typing" className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700">
+        <p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p>
+      </div>
+    )}
+    <div ref={messagesEndRef} />
+  </div>
+  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+    <div className="flex gap-2">
+      <input 
+        id="chat-message-input"
+        name="chat-message-input"
+        value={newMessage} 
+        onChange={(e) => setNewMessage(e.target.value)} 
+        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())} 
+        placeholder="Type a message..." 
+        className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+      />
+      <button 
+        onClick={handleSendMessage} 
+        disabled={loading} 
+        className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}
+      >
+        Send
+      </button>
+    </div>
+  </div>
+</aside>
+
+{/* Mobile Right Drawer */}
+<aside className={`fixed top-0 right-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'right' ? 'translate-x-0' : 'translate-x-full'}`}>
+  <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+    <h2 className="text-xl font-bold">Chat</h2>
+    <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
+      Export
+    </button>
+  </div>
+  <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+    {messages.map((msg, idx) => (
+      <div key={msg._id || idx} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
+        <p className="text-sm">{msg.text}</p>
+      </div>
+    ))}
+    {loading && <div className="flex items-center gap-2 p-3"><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div></div>}
+    {botTyping && <div className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700"><p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p></div>}
+    <div ref={messagesEndRef} />
+  </div>
+  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+    <div className="flex gap-2">
+      <input 
+        id="chat-message-input"
+        name="chat-message-input"
+        value={newMessage} 
+        onChange={(e) => setNewMessage(e.target.value)} 
+        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())} 
+        placeholder="Type a message..." 
+        className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+      />
+      <button 
+        onClick={handleSendMessage} 
+        disabled={loading} 
+        className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}
+      >
+        Send
+      </button>
+    </div>
+  </div>
+</aside>
+        {/* --- ABSOLUTE/FLOATING UI ELEMENTS --- */}
+        {/* By placing them here, they are anchored to the main root div and have a clear stacking order. */}
+        
+        {/* New Chat Popup */}
+            {showNewChatPopup && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"
+                    onClick={() => setShowNewChatPopup(false)}
+                >
+                    <motion.div 
+                        initial={{ scale: 0.9, y: -20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        exit={{ scale: 0.9, y: -20, opacity: 0 }}
+                        className={`p-6 rounded-xl shadow-2xl w-full max-w-md ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <h2 className="text-2xl font-bold mb-4">Create New Chat</h2>
+                        <input
+                            type="text"
+                            value={newChatName}
+                            onChange={(e) => setNewChatName(e.target.value)}
+                            placeholder="Enter chat name..."
+                            className={`w-full p-2 border rounded-lg mb-4 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`}
+                            onKeyDown={(e) => e.key === 'Enter' && createChat()}
+                        />
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setShowNewChatPopup(false)} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'}`}>
+                                Cancel
+                            </button>
+                            <button onClick={createChat} className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                Create
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
 
         {/* Desktop Left Sidebar (always in DOM for transitions) */}
         <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
@@ -1107,8 +1404,10 @@ const handleSendMessage = async () => {
                 <ChevronRight className={`transition-transform ${!rightOpen && 'rotate-180'}`}/>
             </button>
         </div>
-        </div>
-    );
+    </div>
+    </>
+    
+  );
 };
 
 export default WorkArea;
