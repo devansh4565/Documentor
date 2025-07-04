@@ -21,6 +21,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 // --- Main Component ---
 import { getAuth } from "firebase/auth";
 
+import useFirebaseUser from "../hooks/useFirebaseUser"; // adjust path as needed
+
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   // --- State Management ---
   const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
@@ -28,9 +30,8 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   // Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
-  // Firebase Auth State
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  // Firebase Auth State from custom hook
+  const { user: firebaseUser, authReady } = useFirebaseUser();
 
   // Sidebar Visibility
   const [leftOpen, setLeftOpen] = useState(true);
