@@ -22,7 +22,9 @@ const app = express();
 app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 // --- Local Imports ---
 const connectDB = require("./config/db");
