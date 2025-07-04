@@ -355,40 +355,76 @@ const createChat = async () => {
   }
 };
   
-  const renameChat = useCallback(async (sessionId) => {
-      const newName = prompt("Enter new chat name:", initialSessions[sessionId]?.name || "");
-      if (!newName?.trim()) return;
-      try {
-          const token = await getIdToken();
-          await axios.put(`${API}/api/chats/${sessionId}`, { name: newName }, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
-          setInitialSessions(prev => ({
-              ...prev,
-              [sessionId]: { ...prev[sessionId], name: newName }
-          }));
-      } catch (err) { 
-          console.error("Failed to rename chat:", err); 
-      }
-      finally { setContextMenu(null); }
-  }, [initialSessions, API, getIdToken]);
-    
-  const deleteChat = useCallback(async (sessionId) => {
-    if (!window.confirm("Are you sure you want to delete this chat?")) return;
-    try {
-      const token = await getIdToken();
-      await axios.delete(`${API}/api/chats/${sessionId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-      });
-      const updatedSessions = { ...initialSessions };
-      delete updatedSessions[sessionId];
-      setInitialSessions(updatedSessions);
-      if (selectedChat === sessionId) setSelectedChat(null);
-    } catch (err) { 
-      console.error("Failed to delete chat:", err); 
+const renameChat = useCallback(async (sessionId) => {
+    // Guard clause: Ensure we are ready to make an authenticated request
+    if (!firebaseUser || !authReady || typeof getIdToken !== 'function') {
+        console.error("Cannot rename chat: User not authenticated.");
+        return;
     }
-    finally { setContextMenu(null); }
-  }, [initialSessions, selectedChat, API, getIdToken]);
+    
+    const currentName = initialSessions[sessionId]?.name || "";
+    const newName = prompt("Enter new chat name:", currentName);
+    
+    if (!newName?.trim() || newName === currentName) {
+        setContextMenu(null);
+        return;
+    }
+
+    try {
+        const token = await getIdToken();
+        await axios.put(
+            `${API}/api/chats/${sessionId}`,
+            { name: newName },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setInitialSessions(prev => ({
+            ...prev,
+            [sessionId]: { ...prev[sessionId], name: newName }
+        }));
+    } catch (err) { 
+        console.error("Failed to rename chat:", err); 
+        alert("Failed to rename chat.");
+    } finally {
+        setContextMenu(null);
+    }
+}, [API, initialSessions, firebaseUser, authReady, getIdToken]); // ✅ All dependencies are listed
+    
+const deleteChat = useCallback(async (sessionId) => {
+    // Guard clause
+    if (!firebaseUser || !authReady || typeof getIdToken !== 'function') {
+        console.error("Cannot delete chat: User not authenticated.");
+        return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this chat session?")) {
+        setContextMenu(null);
+        return;
+    }
+    
+    try {
+        const token = await getIdToken();
+        await axios.delete(`${API}/api/chats/${sessionId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // Optimistically update UI
+        setInitialSessions(prev => {
+            const updated = { ...prev };
+            delete updated[sessionId];
+            return updated;
+        });
+
+        if (selectedChat === sessionId) {
+            setSelectedChat(null); // Deselect if the current chat was deleted
+        }
+
+    } catch (err) { 
+        console.error("Failed to delete chat:", err); 
+        alert("Failed to delete chat.");
+    } finally {
+        setContextMenu(null);
+    }
+}, [API, selectedChat, firebaseUser, authReady, getIdToken]); // ✅ All dependencies are listed
   
     const onDrop = useCallback(async (acceptedFiles) => {
       if (!selectedChat) {
