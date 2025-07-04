@@ -164,43 +164,52 @@ const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
     }
   }, [isDesktop]);
   useEffect(() => {
-    // Remove original fetchInitialSessions function and call
-
-    // Add updated fetchInitialSessionsWithAuth function and call
-    const fetchInitialSessionsWithAuth = async () => {
-      if (initialSessions && Object.keys(initialSessions).length > 0) return; // Already loaded
-
-      try {
-        const token = await getIdToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`${API}/api/chats`, {
-          credentials: "include",
-          headers,
-        });
-        const sessionsArray = await res.json();
-        console.log("🧪 sessionsArray with auth:", sessionsArray);
-
-        const sessionObj = {};
-        if (Array.isArray(sessionsArray)) {
-          sessionsArray.forEach(s => {
-            sessionObj[s._id] = s;
-          });
-        } else {
-          console.error("❌ sessionsArray is not an array:", sessionsArray);
+    import("firebase/auth").then(({ getAuth, onAuthStateChanged }) => {
+      const auth = getAuth();
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          console.warn("🚫 No Firebase user signed in.");
+          return;
         }
+        console.log("✅ Firebase user signed in:", user.email);
 
-        setInitialSessions(sessionObj);
+        const fetchSessionsWithAuth = async (user) => {
+          try {
+            const token = await user.getIdToken();
+            const res = await fetch(`${API}/api/chats`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: "include",
+            });
+            const sessionsArray = await res.json();
+            console.log("🧪 sessionsArray with auth:", sessionsArray);
 
-        if (sessionsArray.length > 0 && !selectedChat) {
-          setSelectedChat(sessionsArray[0]._id);
-        }
-      } catch (err) {
-        console.error("❌ Failed to auto-fetch initial sessions with auth:", err);
-      }
-    };
+            const sessionObj = {};
+            if (Array.isArray(sessionsArray)) {
+              sessionsArray.forEach((s) => {
+                sessionObj[s._id] = s;
+              });
+            } else {
+              console.error("❌ sessionsArray is not an array:", sessionsArray);
+            }
 
-    fetchInitialSessionsWithAuth();
-  }, [initialSessions, selectedChat]);
+            setInitialSessions(sessionObj);
+
+            if (sessionsArray.length > 0 && !selectedChat) {
+              setSelectedChat(sessionsArray[0]._id);
+            }
+          } catch (err) {
+            console.error("❌ Failed to auto-fetch initial sessions with auth:", err);
+          }
+        };
+
+        await fetchSessionsWithAuth(user);
+      });
+
+      return () => unsubscribe();
+    });
+  }, []);
   // Effect to fetch all necessary data when a chat session is selected
   useEffect(() => {
     // Remove original fetchSessionData function and call
