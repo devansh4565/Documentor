@@ -23,7 +23,7 @@ app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
   optionsSuccessStatus: 200,
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Set-Cookie'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 // --- Local Imports ---
