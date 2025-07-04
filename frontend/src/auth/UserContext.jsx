@@ -1,22 +1,4 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyD4gD7Lztb7BBKScmjJrC8c_bpcEJAbIBY",
-  authDomain: "documentor-75e23.firebaseapp.com",
-  projectId: "documentor-75e23",
-  storageBucket: "documentor-75e23.firebasestorage.app",
-  messagingSenderId: "967473245070",
-  appId: "1:967473245070:web:f81b2431b15f3692db92df",
-  measurementId: "G-JGTSDS7X4R"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
 
 export const UserContext = createContext();
 
@@ -25,36 +7,32 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-      } else {
+    // Call backend /me endpoint to check if user is logged in via session cookie
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('https://documentor-backend-btiq.onrender.com/api/auth/me', {
+          credentials: 'include', // important to send cookies
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    };
+    fetchUser();
   }, []);
 
-  const login = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login error:", error);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
+  // No login/logout functions here since login is handled by redirect to backend OAuth
 
   return (
-    <UserContext.Provider value={{ user, loading, login, logout }}>
+    <UserContext.Provider value={{ user, loading }}>
       {children}
     </UserContext.Provider>
   );
