@@ -1175,7 +1175,6 @@ return (
 
         {/* Desktop Right Sidebar */}
         <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
-        <>
           <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
             <h2 className="text-xl font-bold">Chat</h2>
             <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
@@ -1224,7 +1223,6 @@ return (
               </button>
             </div>
           </div>
-        </>
         </aside>
 
         {/* Mobile Right Drawer */}
