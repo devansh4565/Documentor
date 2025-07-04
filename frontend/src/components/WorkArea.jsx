@@ -91,6 +91,16 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
 
   const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
 
+  // Temporary debug login button JSX
+  const loginButton = (
+    <button
+      onClick={handleFirebaseLogin}
+      className="fixed top-4 left-4 z-50 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700"
+    >
+      🔥 Login with Google (Firebase)
+    </button>
+  );
+
   useEffect(() => {
     if (!authReady || !firebaseUser) return;
 
