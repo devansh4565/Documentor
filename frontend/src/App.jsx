@@ -35,6 +35,7 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
     const isDesktop = useMediaQuery('(min-width: 1024px)');
+    const [initialSessions, setInitialSessions] = useState({});
 
     return (
         <UserProvider>
