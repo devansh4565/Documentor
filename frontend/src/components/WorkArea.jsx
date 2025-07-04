@@ -294,41 +294,51 @@ const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
 // --- Paste this inside your WorkArea.jsx component ---
 
 const createChat = async () => {
-    // Basic validation
-    if (!newChatName.trim()) {
-        alert("Please enter a name for the new chat.");
-        return;
+  const { getAuth } = await import("firebase/auth");
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  if (!user) {
+    console.error("🚫 No Firebase user signed in.");
+    return;
+  }
+
+  if (!newChatName.trim()) {
+    alert("Please enter a name for the new chat.");
+    return;
+  }
+
+  try {
+    const token = await user.getIdToken();
+    const res = await fetch(`${API}/api/chats`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      body: JSON.stringify({ name: newChatName }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to create chat session.");
     }
 
-    try {
-        // Step 1: Call the backend to create the new session in the database.
-        // The backend will automatically associate it with the logged-in user.
-        const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/chats`, 
-            { name: newChatName },
-            { withCredentials: true } // Crucial for sending the user's login cookie
-        );
+    const newSessionFromDB = await res.json();
 
-        // The response (`res.data`) will be the complete, new session object from the DB,
-        // including its _id, name, and createdAt.
-        const newSessionFromDB = res.data;
-        
-        // ✅ KEY FIX: Update the frontend state with the *actual data from the server*.
-        setInitialSessions(prev => ({
-            [newSessionFromDB._id]: newSessionFromDB,
-            ...prev 
-        }));
+    setInitialSessions((prev) => ({
+      [newSessionFromDB._id]: newSessionFromDB,
+      ...prev,
+    }));
 
-        // Automatically select the newly created chat
-        setSelectedChat(newSessionFromDB._id);
-        
-        // Cleanup the UI
-        setShowNewChatPopup(false);
-        setNewChatName("");
+    setSelectedChat(newSessionFromDB._id);
 
-    } catch (err) {
-        console.error("Failed to create chat:", err);
-        alert("Error: Could not create a new chat session.");
-    }
+    setShowNewChatPopup(false);
+    setNewChatName("");
+  } catch (err) {
+    console.error("Failed to create chat:", err);
+    alert("Error: Could not create a new chat session.");
+  }
 };
   
   // The corrected renameChat function
