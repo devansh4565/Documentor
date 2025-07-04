@@ -22,28 +22,16 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 import { getAuth } from "firebase/auth";
 
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
-    // --- State Management ---
-const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
+  // --- State Management ---
+  const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
 
-// Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
+  // Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
-  // Helper function to get Firebase ID token
-  const getIdToken = async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      console.warn("No Firebase user currently signed in.");
-      return null;
-    }
-    try {
-      const token = await currentUser.getIdToken();
-      return token;
-    } catch (error) {
-      console.error("Error getting Firebase ID token:", error);
-      return null;
-    }
-  };
-  
+  // Firebase Auth State
+  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
   // Sidebar Visibility
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
@@ -82,26 +70,28 @@ const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const messagesEndRef = useRef(null);
-   
+
   const contextMenuRef = useRef(null);
   // --- Add this new useEffect hook to your WorkArea.jsx component ---
 
-const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
+  const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
 
   useEffect(() => {
-      const sessionIds = Object.keys(initialSessions || {});
-      
-      // This effect runs only once when the sessions are first loaded.
-      if (sessionIds.length > 0 && !hasAutoSelected.current) {
-          // Assuming the first session in the list is the most recent one.
-          const mostRecentSessionId = sessionIds[0];
-          console.log(`🚀 Auto-selecting first chat session: ${mostRecentSessionId}`);
-          setSelectedChat(mostRecentSessionId);
-          
-          // Set a flag to prevent this from running again if the user manually deselects a chat.
-          hasAutoSelected.current = true;
-      }
-  }, [initialSessions]); // This dependency array ensures it runs when `initialSessions` data arrives.
+    if (!authReady || !firebaseUser) return;
+
+    const sessionIds = Object.keys(initialSessions || {});
+    
+    // This effect runs only once when the sessions are first loaded.
+    if (sessionIds.length > 0 && !hasAutoSelected.current) {
+        // Assuming the first session in the list is the most recent one.
+        const mostRecentSessionId = sessionIds[0];
+        console.log(`🚀 Auto-selecting first chat session: ${mostRecentSessionId}`);
+        setSelectedChat(mostRecentSessionId);
+        
+        // Set a flag to prevent this from running again if the user manually deselects a chat.
+        hasAutoSelected.current = true;
+    }
+  }, [initialSessions, authReady, firebaseUser]); // This dependency array ensures it runs when `initialSessions` data arrives and auth is ready.
     // --- Effects ---
 
   // Effect for responsive PDF width
