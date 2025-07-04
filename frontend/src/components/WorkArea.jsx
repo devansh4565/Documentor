@@ -31,7 +31,7 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Firebase Auth State from custom hook
-  const { user: firebaseUser, authReady } = useFirebaseUser();
+  const { user: firebaseUser, authReady, getIdToken } = useFirebaseUser();
 
   // Sidebar Visibility
   const [leftOpen, setLeftOpen] = useState(true);
@@ -179,11 +179,11 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
     }
   }, [isDesktop]);
   useEffect(() => {
-    import("firebase/auth").then(({ getAuth, onAuthStateChanged }) => {
-      const auth = getAuth();
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
         if (!user) {
           console.warn("🚫 No Firebase user signed in.");
+          setInitialSessions({}); // Clear sessions on logout
           return;
         }
         console.log("✅ Firebase user signed in:", user.email);
@@ -195,10 +195,9 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-              credentials: "include",
             });
             const sessionsArray = await res.json();
-            console.log("🧪 sessionsArray with auth:", sessionsArray);
+            if (!res.ok) throw new Error(sessionsArray.message || 'Failed to fetch sessions');
 
             const sessionObj = {};
             if (Array.isArray(sessionsArray)) {
@@ -211,29 +210,20 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
 
             setInitialSessions(sessionObj);
 
-            if (sessionsArray.length > 0 && !selectedChat) {
-              setSelectedChat(sessionsArray[0]._id);
-            }
           } catch (err) {
             console.error("❌ Failed to auto-fetch initial sessions with auth:", err);
           }
         };
-
         await fetchSessionsWithAuth(user);
       });
 
       return () => unsubscribe();
-    });
-  }, []);
+  }, [setInitialSessions]); // Dependency on setInitialSessions
+
   // Effect to fetch all necessary data when a chat session is selected
   useEffect(() => {
-    // Remove original fetchSessionData function and call
-
-    // Add updated fetchSessionDataWithAuth function and call
     const fetchSessionDataWithAuth = async () => {
-      if (!selectedChat) return;
-
-      if (!selectedChat || selectedChat.length !== 24) {
+      if (!selectedChat || selectedChat.length !== 24 || !authReady || !firebaseUser) {
         setSessionFiles([]);
         setMessages([]);
         setHighlightedPhrases([]);
@@ -243,34 +233,23 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
       try {
         setLoading(true);
         const token = await getIdToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers = { Authorization: `Bearer ${token}` };
 
         const [filesRes, messagesRes, highlightsRes] = await Promise.all([
-          fetch(`${API}/api/files/${selectedChat}`, {
-            credentials: "include",
-            headers,
-          }),
-          fetch(`${API}/api/chats/${selectedChat}/messages`, {
-            credentials: "include",
-            headers,
-          }),
-          fetch(`${API}/api/highlights/${selectedChat}`, {
-            credentials: "include",
-            headers,
-          }),
+          fetch(`${API}/api/files/${selectedChat}`, { headers }),
+          fetch(`${API}/api/chats/${selectedChat}/messages`, { headers }),
+          fetch(`${API}/api/highlights/${selectedChat}`, { headers }),
         ]);
 
         const filesData = await filesRes.json();
         setSessionFiles(filesData.files || []);
 
         const messagesData = await messagesRes.json();
-
         const formattedMessages = (messagesData || []).map(dbMsg => ({
           sender: dbMsg.role,
           text: dbMsg.content,
           _id: dbMsg._id
         }));
-
         setMessages(formattedMessages);
 
         const highlightsData = await highlightsRes.json();
@@ -285,12 +264,12 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
       }
     };
     fetchSessionDataWithAuth();
-  }, [selectedChat]);
+  }, [selectedChat, authReady, firebaseUser, getIdToken]);
 
   // Effect to scroll to the bottom of the chat window on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, botTyping]);
 
   // Effect to close context menu on outside click
   useEffect(() => {
@@ -304,50 +283,33 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   }, []); // Runs once on mount
 
     // --- Core Functions ---
-
-// --- The Final, Corrected createChat function ---
-// --- Paste this inside your WorkArea.jsx component ---
-
 const createChat = async () => {
-  const { getAuth } = await import("firebase/auth");
-  const auth = getAuth();
-  const user = auth.currentUser;
-
-  if (!user) {
+  if (!firebaseUser) {
     console.error("🚫 No Firebase user signed in.");
+    alert("You must be logged in to create a chat.");
     return;
   }
-
   if (!newChatName.trim()) {
     alert("Please enter a name for the new chat.");
     return;
   }
-
   try {
-    const token = await user.getIdToken();
+    const token = await getIdToken();
     const res = await fetch(`${API}/api/chats`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      credentials: "include",
       body: JSON.stringify({ name: newChatName }),
     });
-
-    if (!res.ok) {
-      throw new Error("Failed to create chat session.");
-    }
-
+    if (!res.ok) throw new Error("Failed to create chat session.");
     const newSessionFromDB = await res.json();
-
     setInitialSessions((prev) => ({
       [newSessionFromDB._id]: newSessionFromDB,
       ...prev,
     }));
-
     setSelectedChat(newSessionFromDB._id);
-
     setShowNewChatPopup(false);
     setNewChatName("");
   } catch (err) {
@@ -356,27 +318,31 @@ const createChat = async () => {
   }
 };
   
-  // The corrected renameChat function
   const renameChat = useCallback(async (sessionId) => {
       const newName = prompt("Enter new chat name:", initialSessions[sessionId]?.name || "");
       if (!newName?.trim()) return;
       try {
-          await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}`, { name: newName });
+          const token = await getIdToken();
+          await axios.put(`${API}/api/chats/${sessionId}`, { name: newName }, {
+              headers: { Authorization: `Bearer ${token}` }
+          });
           setInitialSessions(prev => ({
               ...prev,
-              // ✅ KEY FIX: We update session.name directly
               [sessionId]: { ...prev[sessionId], name: newName }
           }));
       } catch (err) { 
           console.error("Failed to rename chat:", err); 
       }
       finally { setContextMenu(null); }
-  });
+  }, [initialSessions, API, getIdToken]);
     
   const deleteChat = useCallback(async (sessionId) => {
     if (!window.confirm("Are you sure you want to delete this chat?")) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/chats/${sessionId}`);
+      const token = await getIdToken();
+      await axios.delete(`${API}/api/chats/${sessionId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+      });
       const updatedSessions = { ...initialSessions };
       delete updatedSessions[sessionId];
       setInitialSessions(updatedSessions);
@@ -385,108 +351,66 @@ const createChat = async () => {
       console.error("Failed to delete chat:", err); 
     }
     finally { setContextMenu(null); }
-  });
+  }, [initialSessions, selectedChat, API, getIdToken]);
   
     const onDrop = useCallback(async (acceptedFiles) => {
       if (!selectedChat) {
-        alert("Please select a chat session first before uploading files.");
+        alert("Please select or create a chat session first before uploading files.");
         return;
       }
       if (acceptedFiles.length === 0) return;
-
       const file = acceptedFiles[0];
       setIsUploading(true);
-
       const formData = new FormData();
       formData.append("file", file);
       formData.append("sessionId", selectedChat);
-
       try {
         const token = await getIdToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
         const res = await fetch(`${API}/api/ocr`, {
           method: "POST",
           body: formData,
-          credentials: "include",
-          headers,
+          headers: { Authorization: `Bearer ${token}` },
         });
-
         if (!res.ok) throw new Error("File upload failed on the server.");
-
         const newFileFromDB = await res.json();
-        if (!newFileFromDB._id || !newFileFromDB.name || !newFileFromDB.url) {
-          alert("Upload failed: incomplete file data received.");
-          return;
-        }
-
         setSessionFiles(prevFiles => [...prevFiles, newFileFromDB]);
         setSelectedFile(newFileFromDB);
-
       } catch (err) {
         console.error("onDrop handler failed:", err);
         alert(`Upload Error: ${err.message}`);
       } finally {
         setIsUploading(false);
       }
-    }, [selectedChat]);
+    }, [selectedChat, API, getIdToken]);
   
-// --- The Debug Version of handleSendMessage ---
-
-// --- Replace your handleSendMessage with this new version ---
-
-// in WorkArea.jsx, replace the existing handleSendMessage
-
 const handleSendMessage = async () => {
-    // 1. Guard Clause: Make sure we have something to send
-    if (!newMessage.trim() || !selectedChat) {
-      console.error("handleSendMessage exited: No message or no selected chat.");
-      return;
-    }
-
+    if (!newMessage.trim() || !selectedChat) return;
     const userMessageText = newMessage;
     const userMessageForState = { sender: 'user', text: userMessageText };
-  
-    // 2. Prepare the history for the API using the current state PLUS the new message.
-    // This is the only way to avoid a "stale state" error.
     const historyForAPI = [...messages, userMessageForState]
-        .slice(-8) // Send last 8 messages for context
+        .slice(-8)
         .map(msg => ({ role: (msg.sender === 'user' ? 'user' : 'assistant'), content: msg.text }));
     
-    // 3. Perform Optimistic UI updates
-    setMessages(prev => [...prev, userMessageForState]); // Add user's message immediately
-    setNewMessage("");      // Clear the input
-    setLoading(true);       // Show "..." dots
-    setBotTyping("");       // Clear any previous typing animation
+    setMessages(prev => [...prev, userMessageForState]);
+    setNewMessage("");
+    setLoading(true);
+    setBotTyping("");
 
     try {
-        // --- 4. Backend Operations ---
+        const token = await getIdToken();
+        const authHeader = { headers: { Authorization: `Bearer ${token}` } };
         
-        // A. Save user's message
-        await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/api/chats/${selectedChat}/messages`,
-          { role: "user", content: userMessageText },
-          { headers: { Authorization: `Bearer ${await getIdToken()}` } }
-        );
+        await axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "user", content: userMessageText }, authHeader);
 
-        // B. Call the AI
         const res = await axios.post(`${API}/api/ask`, {
             history: historyForAPI,
             fileContent: selectedFile?.content || "",
-        }, { headers: { Authorization: `Bearer ${await getIdToken()}` } });
-
+        }, authHeader);
         const botResponseText = res.data.response || "Sorry, I couldn't get a response.";
 
-        // C. Save the bot's response
-        await axios.post(
-          `${API}/api/chats/${selectedChat}/messages`,
-          { role: "assistant", content: botResponseText },
-          { headers: { Authorization: `Bearer ${await getIdToken()}` } }
-        );
+        await axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "assistant", content: botResponseText }, authHeader);
         
-        // --- 5. Animate the response ---
-        setLoading(false); // Turn off the "..." dots
-
+        setLoading(false);
         let i = 0;
         const typingInterval = setInterval(() => {
             if (i < botResponseText.length) {
@@ -494,12 +418,10 @@ const handleSendMessage = async () => {
                 i++;
             } else {
                 clearInterval(typingInterval);
-                // The new message is { sender: 'assistant', text: '...' }
                 setMessages(prev => [...prev, { sender: 'assistant', text: botResponseText }]);
                 setBotTyping("");
             }
         }, 25);
-
     } catch (err) {
         console.error("Error in handleSendMessage:", err);
         setMessages(prev => [...prev, { text: `⚠️ Error: ${err.message}`, sender: 'assistant' }]);
@@ -507,121 +429,73 @@ const handleSendMessage = async () => {
         setBotTyping("");
     }
 };
+
   const handleMultiFileSummarize = async () => {
       if (selectedFilesForSummary.length === 0) return;
-      
       setLoading(true);
-      // Create a user-facing message in the chat
       const fileNames = selectedFilesForSummary.map(f => f.name).join(', ');
-      const userPromptMsg = {
-        text: `Summarizing ${selectedFilesForSummary.length} file(s): ${fileNames}`,
-        sender: "user"
-      };
+      const userPromptMsg = { text: `Summarizing ${selectedFilesForSummary.length} file(s): ${fileNames}`, sender: "user" };
       setMessages(prev => [...prev, userPromptMsg]);
 
       try {
-          // Collect all the OCR text from the selected files
-          const textsToSummarize = await Promise.all(
-              selectedFilesForSummary.map(file => {
-                  // If the content is already loaded on the file object, use it.
-                  // This assumes your file objects in `sessionFiles` have the `.content` property.
-                  if (file.content) {
-                      return Promise.resolve(file.content);
-                  }
-                  // Fallback if content isn't pre-loaded (though it should be)
-                  // This part requires `extractTextFromPDF` utility if you have one.
-                  // For now, we'll assume `.content` exists.
-                  return Promise.resolve(""); 
-              })
-          );
-          
-          // Combine all texts into one large string for a single API call
+          const token = await getIdToken();
+          const authHeader = { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } };
+
+          const textsToSummarize = selectedFilesForSummary.map(file => file.content || "").filter(Boolean);
           const combinedText = textsToSummarize.join("\n\n--- END OF DOCUMENT ---\n\n");
           
-          // This can use your existing /api/ask endpoint or a new one
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/ask`, {
-              credentials: "include", // Ensure cookies are sent for session management
+          const res = await fetch(`${API}/api/ask`, {
               method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${await getIdToken()}`
-              },
+              headers: authHeader.headers,
               body: JSON.stringify({
-                  // We construct a special "history" to ask for a summary
                   history: [{ role: 'user', content: 'Please provide a concise summary of the key points from all the provided document texts.' }],
                   fileContent: combinedText,
               }),
           });
-
-          if (!res.ok) {
-              throw new Error("Failed to get summary from the AI.");
-          }
+          if (!res.ok) throw new Error("Failed to get summary from the AI.");
 
           const data = await res.json();
           const summaryText = data.response || "Could not generate a summary.";
-
           const summaryMsg = { text: summaryText, sender: "bot" };
           setMessages(prev => [...prev, summaryMsg]);
           
-          // Save summary to the database
           await axios.post(`${API}/api/chats/${selectedChat}/messages`, {
               role: 'assistant',
               content: `Summary of ${fileNames}:\n\n${summaryText}`
-          }, { headers: { Authorization: `Bearer ${await getIdToken()}` } });
-
+          }, authHeader);
       } catch (err) {
           console.error("Multi-file summary failed:", err);
           const errorMsg = { text: `⚠️ Error summarizing files: ${err.message}`, sender: "bot" };
           setMessages(prev => [...prev, errorMsg]);
       } finally {
           setLoading(false);
-          // Clear the selection after the operation is complete
           setSelectedFilesForSummary([]);
       }
   };
-// --- The Final, Corrected handleGenerateMindMap function ---
-// --- Paste this inside your WorkArea component ---
 
   const handleGenerateMindMap = async () => {
-      if (!selectedFile?.content) {
-          alert("Please select a file with content to generate a mind map.");
+      if (!selectedFile?.content || !selectedChat) {
+          alert("Please select a file and a chat session to generate a mind map.");
           return;
       }
-      if (!selectedChat) {
-          alert("Please select a chat session to associate this mind map with.");
-          return;
-      }
-
       setLoading(true);
       try {
-          // ✅ We are explicitly setting the method to "POST"
-          // and including the necessary headers and body.
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/generate-mindmap`, {
+          const token = await getIdToken();
+          const authHeader = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+          const res = await fetch(`${API}/api/generate-mindmap`, {
               method: "POST",
-              credentials: "include", // Ensure cookies are sent for session management
-              headers: {
-                  "Content-Type": "application/json",
-              },
+              headers: authHeader,
               body: JSON.stringify({ documentText: selectedFile.content }),
           });
-
-          if (!res.ok) {
-              throw new Error("AI failed to generate a valid mind map structure.");
-          }
-          
+          if (!res.ok) throw new Error("AI failed to generate a valid mind map structure.");
           const mindMapData = await res.json();
 
-          // Save the successfully generated map data
-          await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${selectedChat}`, {
+          await fetch(`${API}/api/mindmap/${selectedChat}`, {
               method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
+              headers: authHeader,
               body: JSON.stringify({ data: mindMapData }),
           });
-
-          // Navigate to the mind map page, passing the session ID so it can load the data
           navigate('/mindmap', { state: { sessionId: selectedChat } });
-
       } catch (err) {
           console.error("Error in mind map generation flow:", err);
           alert(`Error: ${err.message}`);
@@ -629,6 +503,7 @@ const handleSendMessage = async () => {
           setLoading(false);
       }
   };
+
     const exportChat = () => { 
       if(messages.length === 0) return;
       const content = messages.map(msg => `[${msg.sender.toUpperCase()}] ${new Date().toISOString()}:\n${msg.text}`).join("\n\n");
@@ -641,569 +516,103 @@ const handleSendMessage = async () => {
       URL.revokeObjectURL(url);
     };
   
-  // PDF Navigation and Highlighting
-  const onDocumentLoadSuccess = ({ numPages: nextNumPages }) => {
-    setNumPages(nextNumPages);
-    setPageNumber(1);
-  };
-  
+  // PDF Navigation
+  const onDocumentLoadSuccess = ({ numPages: nextNumPages }) => setNumPages(nextNumPages);
   const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
   const goToNextPage = () => setPageNumber(prev => Math.min(prev + 1, numPages));
-
-  const highlightText = (textItem) => {
-    const text = textItem.str;
-    if (!highlightedPhrases?.length) return text;
-    const regex = new RegExp(`(${highlightedPhrases.join('|')})`, 'gi');
-    return <>{text.split(regex).map((part, index) => highlightedPhrases.some(p => p.toLowerCase() === part.toLowerCase()) ? <mark key={index} className="bg-yellow-300 dark:bg-yellow-500">{part}</mark> : <React.Fragment key={index}>{part}</React.Fragment>)}</>;
-  };
   const handleRightClick = (e, sessionId) => {
-  e.preventDefault();
-  setContextMenu({
-    visible: true,
-    x: e.pageX,
-    y: e.pageY,
-    sessionId,
-  });
-};
-// --- RENDER ---
+    e.preventDefault();
+    setContextMenu({ x: e.pageX, y: e.pageY, sessionId });
+  };
+
+  // --- RENDER ---
   const isDark = theme === "dark";
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] }
   });
 
-// --- Find and replace this block right before your return statement ---
-      {selectedFilesForSummary.length > 0 && (
-          <button
-              onClick={handleMultiFileSummarize}
-              className="absolute bottom-20 right-6 z-20 px-6 py-3 bg-green-600 text-white font-semibold rounded-full shadow-lg hover:bg-green-700 transition-all"
-          >
-              Summarize {selectedFilesForSummary.length} File(s)
-          </button>
-      )}
-
-
-return (
-  <>
-    {loginButton}
-    <div className={`h-screen w-full flex overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-blue-50'} transition-colors duration-300`}>
-      {/* Backdrop for mobile drawers */}
-      {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"></div>}
-
-        {/* --- Primary Layout --- */}
-        {/* Desktop Left Sidebar (always in DOM for transitions) */}
-<aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
-  <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
-    {/* File List Section */}
-    <div>
-      <h2 className="text-xl font-bold text-center mb-4">File List</h2>
-      <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
-        <input {...getInputProps()} />
-        <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
-      </div>
-      <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
-        {sessionFiles.map((file) => {
-          const isSelectedForSummary = selectedFilesForSummary.some(f => f._id && file._id && f._id === file._id);
-          const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
-          return (
-            <div key={file._id || `${file.name}-${file.size}-${Date.now()}`} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-              <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
-                <p className="font-medium text-sm truncate">{file.name}</p>
-                <p className="text-xs text-gray-500">{file.size}</p>
-              </div>
-              <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+  const LeftPanelContent = () => (
+    <>
+      <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
+          {/* File List Section */}
+          <div>
+            <h2 className="text-xl font-bold text-center mb-4">File List</h2>
+            <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
+              <input {...getInputProps()} />
+              <p className="text-sm font-medium">{isUploading ? "Uploading..." : (isDragActive ? "Drop files here..." : "Drag & drop or click")}</p>
             </div>
-          );
-        })}
-      </div>
-    </div>
-    {/* Previous Chats Section */}
-    <div className="flex-1 flex flex-col min-h-0">
-      <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-        {Object.entries(initialSessions || {})
-          .filter(([_, session]) => session && session.name && session.createdAt)
-          .sort((a, b) => new Date(b[1].createdAt || 0) - new Date(a[1].createdAt || 0))
-          .map(([key, session]) => (
-            <div
-              key={key}
-              onClick={() => {
-                setSelectedChat(key);
-                if (!isDesktop) setMobileDrawer(null);
-              }}
-              className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === key ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}
-              onContextMenu={(e) => handleRightClick(e, session._id)}
-            >
-              <p className="text-sm font-medium truncate">{session.name}</p>
-              <p className="text-xs text-gray-500">{session.createdAt ? new Date(session.createdAt).toLocaleString() : "No date"}</p>
+            <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
+              {sessionFiles.map((file) => {
+                const isSelectedForSummary = selectedFilesForSummary.some(f => f._id === file._id);
+                const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
+                return (
+                  <div key={file._id} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                    <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
+                      <p className="font-medium text-sm truncate">{file.name}</p>
+                    </div>
+                    <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-      </div>
-    </div>
-  </div>
-  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-    <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
-  </div>
-</aside>
-
-
-       {/* Mobile Left Drawer */}
-<aside className={`fixed top-0 left-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'left' ? 'translate-x-0' : '-translate-x-full'}`}>
-  <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
-    {/* File List Section */}
-    <div>
-      <h2 className="text-xl font-bold text-center mb-4">File List</h2>
-      <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
-        <input {...getInputProps()} />
-        <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
-      </div>
-      <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
-        {sessionFiles.map((file) => {
-          const isSelectedForSummary = selectedFilesForSummary.some(f => f._id && file._id && f._id === file._id);
-          const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
-          return (
-            <div key={file._id || `${file.name}-${file.size}-${Date.now()}`} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-              <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
-                <p className="font-medium text-sm truncate">{file.name}</p>
-                <p className="text-xs text-gray-500">{file.size}</p>
-              </div>
-              <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+          </div>
+          {/* Previous Chats Section */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
+              {Object.values(initialSessions || {})
+                .filter(session => session?.name && session?.createdAt)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .map((session) => (
+                  <div
+                    key={session._id}
+                    onClick={() => { setSelectedChat(session._id); if (!isDesktop) setMobileDrawer(null); }}
+                    className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === session._id ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}
+                    onContextMenu={(e) => handleRightClick(e, session._id)}
+                  >
+                    <p className="text-sm font-medium truncate">{session.name}</p>
+                    <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleString()}</p>
+                  </div>
+                ))}
             </div>
-          );
-        })}
-      </div>
-    </div>
-    {/* Previous Chats Section */}
-    <div className="flex-1 flex flex-col min-h-0">
-      <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-        {Object.entries(initialSessions || {})
-          .filter(([_, session]) => session && session.name && session.createdAt)
-          .sort((a, b) => new Date(b[1].createdAt || 0) - new Date(a[1].createdAt || 0))
-          .map(([key, session]) => (
-            <div
-              key={key}
-              onClick={() => {
-                setSelectedChat(key);
-                if (!isDesktop) setMobileDrawer(null);
-              }}
-              className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === key ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}
-              onContextMenu={(e) => handleRightClick(e, session._id)}
-            >
-              <p className="text-sm font-medium truncate">{session.name}</p>
-              <p className="text-xs text-gray-500">{session.createdAt ? new Date(session.createdAt).toLocaleString() : "No date"}</p>
-            </div>
-          ))}
-      </div>
-    </div>
-  </div>
-  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-    <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
-  </div>
-</aside>
+          </div>
+        </div>
+        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+          <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
+        </div>
+    </>
+  );
 
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <Header user={user} />
-            {/* ... mobile menu buttons ... */}
-            
-            {/* This ensures any changes to `selectedFile` force a re-render of this section */}
-            <div className="flex-1 flex flex-col h-full">
-                {selectedFile ? (
-                    <div className="flex flex-col h-full p-4">
-                        <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
-                        <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
-                            {containerWidth > 0 && selectedFile?.url && (
-                              <Document
-                                file={`${import.meta.env.VITE_API_BASE_URL}${selectedFile.url}`}
-                                onLoadSuccess={onDocumentLoadSuccess}
-                                key={selectedFile._id}
-                              >
-                                <Page pageNumber={pageNumber} width={containerWidth} />
-                              </Document>
-                            )}
-                        </div>
-                          {numPages && (
-                              <div className="flex-shrink-0 mt-2 flex justify-center">
-                                  <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md">
-                                      <button
-                                          key="prev-page"
-                                          onClick={goToPrevPage}
-                                          disabled={pageNumber <= 1}
-                                          className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                                      >
-                                          Prev
-                                      </button>
-                                      <span className="px-4 font-semibold text-sm">
-                                          Page {pageNumber} of {numPages}
-                                      </span>
-                                      <button
-                                          key="next-page"
-                                          onClick={goToNextPage}
-                                          disabled={pageNumber >= numPages}
-                                          className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                                      >
-                                          Next
-                                      </button>
-                                  </div>
-                              </div>
-                          )}
-                    </div>
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center p-4 text-center">
-                        <h2 className="text-xl font-semibold text-gray-400">Select a file to get started</h2>
-                    </div>
-                )}
-            </div>
-        </main>
-
-        {/* Desktop Right Sidebar */}
-<aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
-  <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
-    <h2 className="text-xl font-bold">Chat</h2>
-    <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
-      Export
-    </button>
-  </div>
-  <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-    {messages.map((msg, idx) => (
-      <div key={msg._id || idx} className={`...`}>
-        <p className="text-sm">{msg.text}</p>
-      </div>
-    ))}
-
-    {loading && (
-      <div key="loading-dots" className="flex items-center gap-2 p-3">
-        <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-        <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-        <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div>
-      </div>
-    )}
-
-    {botTyping && (
-      <div key="bot-typing" className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700">
-        <p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p>
-      </div>
-    )}
-    <div ref={messagesEndRef} />
-  </div>
-  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-    <div className="flex gap-2">
-      <input 
-        id="chat-message-input"
-        name="chat-message-input"
-        value={newMessage} 
-        onChange={(e) => setNewMessage(e.target.value)} 
-        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())} 
-        placeholder="Type a message..." 
-        className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
-      />
-      <button 
-        onClick={handleSendMessage} 
-        disabled={loading} 
-        className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}
-      >
-        Send
-      </button>
-    </div>
-  </div>
-</aside>
-
-{/* Mobile Right Drawer */}
-<aside className={`fixed top-0 right-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'right' ? 'translate-x-0' : 'translate-x-full'}`}>
-  <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
-    <h2 className="text-xl font-bold">Chat</h2>
-    <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
-      Export
-    </button>
-  </div>
-  <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-    {messages.map((msg, idx) => (
-      <div key={msg._id || idx} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
-        <p className="text-sm">{msg.text}</p>
-      </div>
-    ))}
-    {loading && <div className="flex items-center gap-2 p-3"><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div></div>}
-    {botTyping && <div className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700"><p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p></div>}
-    <div ref={messagesEndRef} />
-  </div>
-  <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-    <div className="flex gap-2">
-      <input 
-        id="chat-message-input"
-        name="chat-message-input"
-        value={newMessage} 
-        onChange={(e) => setNewMessage(e.target.value)} 
-        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())} 
-        placeholder="Type a message..." 
-        className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
-      />
-      <button 
-        onClick={handleSendMessage} 
-        disabled={loading} 
-        className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}
-      >
-        Send
-      </button>
-    </div>
-  </div>
-</aside>
-        {/* --- ABSOLUTE/FLOATING UI ELEMENTS --- */}
-        {/* By placing them here, they are anchored to the main root div and have a clear stacking order. */}
-        
-        {/* New Chat Popup */}
-            {showNewChatPopup && (
-                <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"
-                    onClick={() => setShowNewChatPopup(false)}
-                >
-                    <motion.div 
-                        initial={{ scale: 0.9, y: -20 }}
-                        animate={{ scale: 1, y: 0 }}
-                        exit={{ scale: 0.9, y: -20, opacity: 0 }}
-                        className={`p-6 rounded-xl shadow-2xl w-full max-w-md ${isDark ? 'bg-gray-800' : 'bg-white'}`}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <h2 className="text-2xl font-bold mb-4">Create New Chat</h2>
-                        <input
-                            type="text"
-                            value={newChatName}
-                            onChange={(e) => setNewChatName(e.target.value)}
-                            placeholder="Enter chat name..."
-                            className={`w-full p-2 border rounded-lg mb-4 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`}
-                            onKeyDown={(e) => e.key === 'Enter' && createChat()}
-                        />
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowNewChatPopup(false)} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'}`}>
-                                Cancel
-                            </button>
-                            <button onClick={createChat} className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                Create
-                            </button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-
-        {/* Desktop Left Sidebar (always in DOM for transitions) */}
-        <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
-        {/* PASTE THIS ENTIRE <>...</> BLOCK IN PLACE OF <LeftPanel /> */}
-        <>
-            <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
-                {/* File List Section */}
-                <div>
-                    <h2 className="text-xl font-bold text-center mb-4">File List</h2>
-                    <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
-                        <input {...getInputProps()} />
-                        <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
-                    </div>
-                    <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
-                        {sessionFiles.map((file) => {
-                            const isSelectedForSummary = selectedFilesForSummary.some(f => f._id && file._id && f._id === file._id);
-
-                            const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
-                            return (
-                                <div key={file._id || `${file.name}-${file.size}-${Date.now()}`} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                                    <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
-                                        <p className="font-medium text-sm truncate">{file.name}</p>
-                                        <p className="text-xs text-gray-500">{file.size}</p>
-                                    </div>
-                                    <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-                {/* Previous Chats Section */}
-                <div className="flex-1 flex flex-col min-h-0">
-                    <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
-                    <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-                      {Object.entries(initialSessions || {})
-                        .filter(([_, session]) => session && session.name && session.createdAt) // ✅ extra safety
-                        .sort((a, b) => new Date(b[1].createdAt || 0) - new Date(a[1].createdAt || 0)) // ✅ prevent NaN
-                        .map(([key, session]) => (
-                          <div
-                            key={key}
-                            onClick={() => {
-                              setSelectedChat(key);
-                              if (!isDesktop) setMobileDrawer(null);
-                            }}
-                            className={`p-2 rounded-lg cursor-pointer transition-colors ${
-                              selectedChat === key
-                                ? "bg-blue-200 dark:bg-purple-800"
-                                : "bg-gray-100 dark:bg-gray-700"
-                            }`}
-                            onContextMenu={(e) => handleRightClick(e, session._id)}
-                          >
-                            <p className="text-sm font-medium truncate">{session.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {session.createdAt ? new Date(session.createdAt).toLocaleString() : "No date"}
-                            </p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-            <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-                <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
-            </div>
-        </>
-        </aside>
-
-        {/* Mobile Left Drawer */}
-        <aside className={`fixed top-0 left-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'left' ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* PASTE THIS ENTIRE <>...</> BLOCK IN PLACE OF <LeftPanel /> */}
-        <>
-            <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
-                {/* File List Section */}
-                <div>
-                    <h2 className="text-xl font-bold text-center mb-4">File List</h2>
-                    <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
-                        <input {...getInputProps()} />
-                        <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
-                    </div>
-                    <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
-                        {sessionFiles.map((file) => {
-                            const isSelectedForSummary = selectedFilesForSummary.some(f => f._id && file._id && f._id === file._id);
-
-                            const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
-                            return (
-                                <div key={file._id || `${file.name}-${file.size}-${Date.now()}`} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                                    <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if(!isDesktop) setMobileDrawer(null); }}>
-                                        <p className="font-medium text-sm truncate">{file.name}</p>
-                                        <p className="text-xs text-gray-500">{file.size}</p>
-                                    </div>
-                                    <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-                {/* Previous Chats Section */}
-                <div className="flex-1 flex flex-col min-h-0">
-                    <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
-                    <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-                      {Object.entries(initialSessions || {})
-                        .filter(([_, session]) => session && session.name && session.createdAt) // ✅ extra safety
-                        .sort((a, b) => new Date(b[1].createdAt || 0) - new Date(a[1].createdAt || 0)) // ✅ prevent NaN
-                        .map(([key, session]) => (
-                          <div
-                            key={key}
-                            onClick={() => {
-                              setSelectedChat(key);
-                              if (!isDesktop) setMobileDrawer(null);
-                            }}
-                            className={`p-2 rounded-lg cursor-pointer transition-colors ${
-                              selectedChat === key
-                                ? "bg-blue-200 dark:bg-purple-800"
-                                : "bg-gray-100 dark:bg-gray-700"
-                            }`}
-                            onContextMenu={(e) => handleRightClick(e, session._id)}
-                          >
-                            <p className="text-sm font-medium truncate">{session.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {session.createdAt ? new Date(session.createdAt).toLocaleString() : "No date"}
-                            </p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-            <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-                <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
-            </div>
-        </>      
-            </aside>
-
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <Header user={user} />
-            {/* ... mobile menu buttons ... */}
-            
-            {/* This ensures any changes to `selectedFile` force a re-render of this section */}
-            <div className="flex-1 flex flex-col h-full">
-                {selectedFile ? (
-                    <div className="flex flex-col h-full p-4">
-                        <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
-                        <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
-                            {containerWidth > 0 && selectedFile?.url && (
-                              <Document
-                                file={`${import.meta.env.VITE_API_BASE_URL}${selectedFile.url}`}
-                                onLoadSuccess={onDocumentLoadSuccess}
-                                key={selectedFile._id}
-                              >
-                                <Page pageNumber={pageNumber} width={containerWidth} />
-                              </Document>
-                            )}
-                        </div>
-                          {numPages && (
-                              <div className="flex-shrink-0 mt-2 flex justify-center">
-                                  <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md">
-                                      <button
-                                          key="prev-page"
-                                          onClick={goToPrevPage}
-                                          disabled={pageNumber <= 1}
-                                          className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                                      >
-                                          Prev
-                                      </button>
-                                      <span className="px-4 font-semibold text-sm">
-                                          Page {pageNumber} of {numPages}
-                                      </span>
-                                      <button
-                                          key="next-page"
-                                          onClick={goToNextPage}
-                                          disabled={pageNumber >= numPages}
-                                          className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                                      >
-                                          Next
-                                      </button>
-                                  </div>
-                              </div>
-                          )}
-                    </div>
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center p-4 text-center">
-                        <h2 className="text-xl font-semibold text-gray-400">Select a file to get started</h2>
-                    </div>
-                )}
-            </div>
-        </main>
-
-        {/* Desktop Right Sidebar */}
-        <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-colors duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
-          <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+  const RightPanelContent = () => (
+    <>
+        <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
             <h2 className="text-xl font-bold">Chat</h2>
             <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
               Export
             </button>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
             {messages.map((msg, idx) => (
-              <div key={msg._id || idx} className={`...`}>
+              <div key={msg._id || idx} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
                 <p className="text-sm">{msg.text}</p>
               </div>
             ))}
-
             {loading && (
-              <div key="loading-dots" className="flex items-center gap-2 p-3">
+              <div className="flex items-center gap-2 p-3">
                 <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                 <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                 <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div>
               </div>
             )}
-
             {botTyping && (
-              <div key="bot-typing" className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700">
+              <div className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700">
                 <p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p>
               </div>
             )}
             <div ref={messagesEndRef} />
-          </div>
-          <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+        </div>
+        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
             <div className="flex gap-2">
               <input 
                 id="chat-message-input"
@@ -1214,198 +623,140 @@ return (
                 placeholder="Type a message..." 
                 className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
               />
-              <button 
-                onClick={handleSendMessage} 
-                disabled={loading} 
-                className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}
-              >
+              <button onClick={handleSendMessage} disabled={loading} className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}>
                 Send
               </button>
             </div>
-          </div>
-        </aside>
-
-        {/* Mobile Right Drawer */}
-        <aside className={`fixed top-0 right-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'right' ? 'translate-x-0' : 'translate-x-full'}`}>
-        <>
-          <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
-            <h2 className="text-xl font-bold">Chat</h2>
-            <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
-              Export
-            </button>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-            {messages.map((msg, idx) => (
-             <div key={msg._id || idx} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
-                <p className="text-sm">{msg.text}</p>
-              </div>
-            ))}
-            {loading && <div className="flex items-center gap-2 p-3"><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div><div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div></div>}
-            {botTyping && <div className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700"><p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p></div>}
-            <div ref={messagesEndRef} />
-          </div>
-          <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-            <div className="flex gap-2">
-              <input 
-                id="chat-message-input"
-                name="chat-message-input"
-                value={newMessage} 
-                onChange={(e) => setNewMessage(e.target.value)} 
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())} 
-                placeholder="Type a message..." 
-                className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
-              />
-              <button 
-                onClick={handleSendMessage} 
-                disabled={loading} 
-                className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </>
-        </aside>
-
-        {/* --- ABSOLUTE/FLOATING UI ELEMENTS --- */}
-        {/* By placing them here, they are anchored to the main root div and have a clear stacking order. */}
-        
-        {/* New Chat Popup */}
-        <AnimatePresence>
-            {showNewChatPopup && (
-                <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"
-                    onClick={() => setShowNewChatPopup(false)}
-                >
-                    <motion.div 
-                        initial={{ scale: 0.9, y: -20 }}
-                        animate={{ scale: 1, y: 0 }}
-                        exit={{ scale: 0.9, y: -20, opacity: 0 }}
-                        className={`p-6 rounded-xl shadow-2xl w-full max-w-md ${isDark ? 'bg-gray-800' : 'bg-white'}`}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <h2 className="text-2xl font-bold mb-4">Create New Chat</h2>
-                        <input
-                            type="text"
-                            value={newChatName}
-                            onChange={(e) => setNewChatName(e.target.value)}
-                            placeholder="Enter chat name..."
-                            className={`w-full p-2 border rounded-lg mb-4 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`}
-                            onKeyDown={(e) => e.key === 'Enter' && createChat()}
-                        />
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowNewChatPopup(false)} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'}`}>
-                                Cancel
-                            </button>
-                            <button onClick={createChat} className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                Create
-                            </button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-4">
-            {/* ✅ THIS IS THE CORRECT, FUNCTIONAL BUTTON */}
-      <button
-        onClick={toggleTheme}
-        className={`p-2 bg-black/10 rounded-full shadow hover:scale-105 transition-all duration-300 ring-2 ring-offset-2 ${
-          theme === 'light' ? 'bg-blue-200 hover:bg-blue-300 text-blue-800 ring-blue-400' : 'bg-purple-700 hover:bg-purple-600 text-yellow-300 ring-purple-400'
-        }`}
-      >
-        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
-            
-            {/* Mobile menu buttons */}
-            <div className="lg:hidden">
-                <button onClick={() => setMobileDrawer('left')} className="p-2 bg-black/10 rounded-full"><Menu size={22}/></button>
-            </div>
-            <div className="lg:hidden">
-                <button onClick={() => setMobileDrawer('right')} className="p-2 bg-black/10 rounded-full"><Menu size={22}/></button>
-            </div>
         </div>
-        <div className={`absolute bottom-20 right-6 z-20 transition-opacity duration-300 
-                        ${selectedFilesForSummary.length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <button
-                onClick={handleMultiFileSummarize}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-semibold rounded-full shadow-lg hover:bg-green-600"
-            >
-                <Lightbulb size={18} /> {/* Make sure Lightbulb is imported from lucide-react */}
-                <span>
-                    Summarize {selectedFilesForSummary.length} File{selectedFilesForSummary.length > 1 ? 's' : ''}
-                </span>
-            </button>
-        </div>
-        
-
-          {/* Floating Action Buttons Container */}
-          <div className={`absolute bottom-6 right-6 z-20 flex flex-col items-end gap-3 transition-all duration-300 ${rightOpen && isDesktop ? 'right-[22rem]' : 'right-6'}`}>
-
-              {/* --- 1. The Multi-File Summarize Button --- */}
-              {/* This button uses Framer Motion for a smooth animation. */}
-              <AnimatePresence>
-                  {selectedFilesForSummary.length > 0 && (
-                      <motion.div
-                          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                      >
-                          <button
-                              onClick={handleMultiFileSummarize}
-                              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-semibold rounded-full shadow-lg hover:bg-green-600"
-                          >
-                              <Lightbulb size={18} />
-                              <span>
-                                  Summarize {selectedFilesForSummary.length} File{selectedFilesForSummary.length > 1 ? 's' : ''}
-                              </span>
-                          </button>
-                      </motion.div>
-                  )}
-              </AnimatePresence>
-
-              {/* --- 2. The AI-Powered "Generate Mind Map" Button --- */}
-              {/* This button only appears when a single file is selected. */}
-              {selectedFile && (
-                <button
-                  onClick={handleGenerateMindMap}
-                  disabled={loading}
-                  className="flex items-center gap-3 px-5 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10c0-4.42-3.58-8-8-8z"/><path d="M12 2a5 5 0 0 0-5 5c0 4.42 8 13 8 13s8-8.58 8-13a5 5 0 0 0-5-5z"/><path d="M12 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>
-                  <span>Generate Mind Map</span>
-                </button>
-              )}
-
-              {/* --- 3. The "View Mind Map" Button --- */}
-              {/* This button is always visible. We can give it slightly different styling. */}
-              <button
-                onClick={() => navigate("/mindmap", { state: { sessionId: selectedChat } })}
-                className="flex items-center gap-3 px-5 py-3 bg-purple-600 text-white font-semibold rounded-full shadow-lg hover:bg-purple-700"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain-circuit"><path d="M12 5a3 3 0 1 0-5.997.001A3 3 0 0 0 12 5zm0 0a3 3 0 1 0 5.997.001A3 3 0 0 0 12 5z"/><path d="M12 12a3 3 0 1 0-5.997.001A3 3 0 0 0 12 12zm0 0a3 3 0 1 0 5.997.001A3 3 0 0 0 12 12z"/><path d="M12 19a3 3 0 1 0-5.997.001A3 3 0 0 0 12 19zm0 0a3 3 0 1 0 5.997.001A3 3 0 0 0 12 19z"/><path d="M5 12h-1"/><path d="M6 12h-1"/><path d="M19 12h1"/><path d="M18 12h1"/><path d="m19.5 7.5-.4.4"/><path d="M19.1 7.1 18.7 7.5"/><path d="m4.5 7.5.4.4"/><path d="M4.9 7.1 5.3 7.5"/><path d="m19.5 16.5-.4-.4"/><path d="M19.1 16.9 18.7 16.5"/><path d="m4.5 16.5.4-.4"/><path d="M4.9 16.9 5.3 16.5"/><path d="M12 8v1"/><path d="M12 15v1"/></svg>
-                <span>View Mind Map</span>
-              </button>
-
-          </div>
-        
-        {/* ✅ DESKTOP Toggle Buttons (re-added and corrected) */}
-        <div className="hidden lg:block">
-            <button onClick={() => setLeftOpen(p => !p)} className="absolute top-1/2 -translate-y-1/2 z-10 w-6 h-16 bg-gray-600/50 hover:bg-gray-600 transition-all text-white flex items-center justify-center rounded-r-lg" style={{left: leftOpen ? '20rem' : '0rem'}}>
-                <ChevronLeft className={`transition-transform ${!leftOpen && 'rotate-180'}`}/>
-            </button>
-            <button onClick={() => setRightOpen(p => !p)} className="absolute top-1/2 -translate-y-1/2 z-10 w-6 h-16 bg-gray-600/50 hover:bg-gray-600 transition-all text-white flex items-center justify-center rounded-l-lg" style={{right: rightOpen ? '20rem' : '0rem'}}>
-                <ChevronRight className={`transition-transform ${!rightOpen && 'rotate-180'}`}/>
-            </button>
-        </div>
-    </div>
     </>
-    
   );
+
+return (
+  <>
+    {loginButton}
+    <div className={`h-screen w-full flex overflow-hidden ${isDark ? 'bg-gray-900 text-gray-100' : 'bg-blue-50 text-gray-900'} transition-colors duration-300`}>
+      {/* Backdrop for mobile drawers */}
+      {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"></div>}
+
+      {/* --- Desktop Left Sidebar --- */}
+      <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-all duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
+        <LeftPanelContent />
+      </aside>
+
+      {/* --- Mobile Left Drawer --- */}
+      <aside className={`fixed top-0 left-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'left' ? 'translate-x-0' : '-translate-x-full'}`}>
+        <LeftPanelContent />
+      </aside>
+      
+      {/* --- Main Content Area --- */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <Header user={user} />
+        <div className="flex-1 flex flex-col h-full">
+          {selectedFile ? (
+            <div className="flex flex-col h-full p-4">
+              <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
+              <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
+                {containerWidth > 0 && selectedFile?.url && (
+                  <Document
+                    file={`${API}${selectedFile.url}`}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    key={selectedFile._id}
+                    className="w-full h-full flex justify-center"
+                  >
+                    <Page pageNumber={pageNumber} width={Math.min(containerWidth - 40, 800)} />
+                  </Document>
+                )}
+              </div>
+              {numPages && (
+                <div className="flex-shrink-0 mt-2 flex justify-center">
+                  <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 rounded-full shadow-md">
+                    <button onClick={goToPrevPage} disabled={pageNumber <= 1} className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600">Prev</button>
+                    <span className="px-4 font-semibold text-sm">Page {pageNumber} of {numPages}</span>
+                    <button onClick={goToNextPage} disabled={pageNumber >= numPages} className="px-4 py-1 text-sm font-semibold rounded-full disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600">Next</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center p-4 text-center">
+              <div className="max-w-md">
+                <Lightbulb className="mx-auto h-12 w-12 text-gray-400" />
+                <h2 className="mt-2 text-xl font-semibold text-gray-400">Select a file or chat to get started</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Upload a PDF in the left panel, choose a document, and start interacting with your personal AI assistant.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* --- Desktop Right Sidebar --- */}
+      <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${isDark ? 'bg-gray-800' : 'bg-white'} transition-all duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
+        <RightPanelContent />
+      </aside>
+
+      {/* --- Mobile Right Drawer --- */}
+      <aside className={`fixed top-0 right-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${isDark ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'right' ? 'translate-x-0' : 'translate-x-full'}`}>
+        <RightPanelContent />
+      </aside>
+      
+      {/* --- ABSOLUTE / FLOATING UI ELEMENTS --- */}
+
+      <AnimatePresence>
+        {showNewChatPopup && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowNewChatPopup(false)}>
+            <motion.div initial={{ scale: 0.9, y: -20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: -20, opacity: 0 }} className={`p-6 rounded-xl shadow-2xl w-full max-w-md ${isDark ? 'bg-gray-800' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
+              <h2 className="text-2xl font-bold mb-4">Create New Chat</h2>
+              <input type="text" value={newChatName} onChange={(e) => setNewChatName(e.target.value)} placeholder="Enter chat name..." className={`w-full p-2 border rounded-lg mb-4 ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`} onKeyDown={(e) => e.key === 'Enter' && createChat()} />
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowNewChatPopup(false)} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'}`}>Cancel</button>
+                <button onClick={createChat} className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>Create</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+        {contextMenu && (
+          <div ref={contextMenuRef} style={{ top: contextMenu.y, left: contextMenu.x }} className={`absolute z-50 w-48 rounded-md shadow-lg ${isDark ? 'bg-gray-700' : 'bg-white'} ring-1 ring-black ring-opacity-5`}>
+            <div className="py-1" role="menu" aria-orientation="vertical">
+              <button onClick={() => renameChat(contextMenu.sessionId)} className="w-full text-left block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600">Rename</button>
+              <button onClick={() => deleteChat(contextMenu.sessionId)} className="w-full text-left block px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-4">
+        <button onClick={toggleTheme} className={`p-2 rounded-full shadow transition-all duration-300 ${theme === 'light' ? 'bg-blue-200 hover:bg-blue-300 text-blue-800' : 'bg-purple-700 hover:bg-purple-600 text-yellow-300'}`}>
+          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+        </button>
+        <div className="lg:hidden flex gap-2">
+            <button onClick={() => setMobileDrawer('left')} className="p-2 bg-black/10 rounded-full"><Menu size={22}/></button>
+            <button onClick={() => setMobileDrawer('right')} className="p-2 bg-black/10 rounded-full"><Menu size={22}/></button>
+        </div>
+      </div>
+
+      <div className={`absolute bottom-6 z-20 flex flex-col items-end gap-3 transition-all duration-300 ${rightOpen && isDesktop ? 'right-[22rem]' : 'right-6'}`}>
+          <AnimatePresence>
+              {selectedFilesForSummary.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
+                      <button onClick={handleMultiFileSummarize} className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-semibold rounded-full shadow-lg hover:bg-green-600"><Lightbulb size={18} /><span>Summarize {selectedFilesForSummary.length} File(s)</span></button>
+                  </motion.div>
+              )}
+          </AnimatePresence>
+          {selectedFile && (
+            <button onClick={handleGenerateMindMap} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 disabled:bg-gray-400">Generate Mind Map</button>
+          )}
+          <button onClick={() => navigate("/mindmap", { state: { sessionId: selectedChat } })} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-full shadow-lg hover:bg-purple-700">View Mind Map</button>
+      </div>
+
+      <div className="hidden lg:block">
+          <button onClick={() => setLeftOpen(p => !p)} className="absolute top-1/2 -translate-y-1/2 z-10 w-6 h-16 bg-gray-600/50 hover:bg-gray-600 transition-all text-white flex items-center justify-center rounded-r-lg" style={{left: leftOpen ? '20rem' : '0rem'}}><ChevronLeft className={`transition-transform ${!leftOpen && 'rotate-180'}`}/></button>
+          <button onClick={() => setRightOpen(p => !p)} className="absolute top-1/2 -translate-y-1/2 z-10 w-6 h-16 bg-gray-600/50 hover:bg-gray-600 transition-all text-white flex items-center justify-center rounded-l-lg" style={{right: rightOpen ? '20rem' : '0rem'}}><ChevronRight className={`transition-transform ${!rightOpen && 'rotate-180'}`}/></button>
+      </div>
+    </div>
+  </>
+);
 };
 
 export default WorkArea;
