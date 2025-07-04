@@ -178,47 +178,84 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
         setMobileDrawer(null); // Close any mobile drawers
     }
   }, [isDesktop]);
-  useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-        if (!user) {
-          console.warn("🚫 No Firebase user signed in.");
-          setInitialSessions({}); // Clear sessions on logout
-          return;
-        }
-        console.log("✅ Firebase user signed in:", user.email);
+useEffect(() => {
+  // We get the auth instance from the Firebase SDK
+  const auth = getAuth();
+  
+  // onAuthStateChanged returns an `unsubscribe` function.
+  // We'll call this when the component unmounts to prevent memory leaks.
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    
+    if (user) {
+      // --- USER IS SIGNED IN ---
+      console.log("✅ Auth state changed: User is signed in.", user.email);
 
-        const fetchSessionsWithAuth = async (user) => {
-          try {
-            const token = await user.getIdToken();
-            const res = await fetch(`${API}/api/chats`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            const sessionsArray = await res.json();
-            if (!res.ok) throw new Error(sessionsArray.message || 'Failed to fetch sessions');
+      // Define an async function to fetch the user's data
+      const fetchUserSessions = async () => {
+        try {
+          // Get the Firebase ID token from the user object.
+          // This is the most reliable way to get the token.
+          const token = await user.getIdToken();
+          
+          console.log("Attempting to fetch sessions with a valid token...");
+          
+          const response = await fetch(`${API}/api/chats`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
 
-            const sessionObj = {};
-            if (Array.isArray(sessionsArray)) {
-              sessionsArray.forEach((s) => {
-                sessionObj[s._id] = s;
-              });
-            } else {
-              console.error("❌ sessionsArray is not an array:", sessionsArray);
-            }
-
-            setInitialSessions(sessionObj);
-
-          } catch (err) {
-            console.error("❌ Failed to auto-fetch initial sessions with auth:", err);
+          // Check if the network response was successful
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Server responded with status: ${response.status}`);
           }
-        };
-        await fetchSessionsWithAuth(user);
-      });
 
-      return () => unsubscribe();
-  }, [setInitialSessions]); // Dependency on setInitialSessions
+          const sessionsArray = await response.json();
+          console.log("✅ Successfully fetched sessions:", sessionsArray);
+
+          // Convert the array of sessions into an object for easier lookup
+          const sessionsObject = {};
+          if (Array.isArray(sessionsArray)) {
+            sessionsArray.forEach((session) => {
+              sessionsObject[session._id] = session;
+            });
+          }
+          
+          // Update the state with the fetched sessions
+          setInitialSessions(sessionsObject);
+
+        } catch (error) {
+          console.error("❌ Failed to fetch initial sessions:", error);
+          // In case of an error, clear out any old session data
+          setInitialSessions({}); 
+        }
+      };
+
+      // Call the function to fetch the data
+      fetchUserSessions();
+
+    } else {
+      // --- USER IS SIGNED OUT ---
+      console.log("🚫 Auth state changed: User is signed out.");
+      
+      // Clear all user-specific state when they log out
+      setInitialSessions({});
+      setSelectedChat(null);
+      setSessionFiles([]);
+      setMessages([]);
+    }
+  });
+
+  // --- CLEANUP FUNCTION ---
+  // This function is returned by useEffect and will be called when the
+  // WorkArea component is unmounted from the screen.
+  return () => {
+    console.log("Cleaning up auth state listener.");
+    unsubscribe(); // This stops listening to auth changes, preventing memory leaks.
+  };
+
+}, [API, setInitialSessions]); // Dependencies for the useEffect
 
   // Effect to fetch all necessary data when a chat session is selected
   useEffect(() => {
