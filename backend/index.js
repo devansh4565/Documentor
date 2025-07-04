@@ -19,6 +19,9 @@ const cookieParser = require('cookie-parser');
 const User = require('./models/User');
 const { router: authRoutes, ensureAuth } = require('./routes/auth');
 const app = express();
+
+app.set('trust proxy', 1); // 👈 Required for secure cookies to work behind a proxy like Render
+
 app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
