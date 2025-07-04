@@ -23,6 +23,8 @@ import { getAuth } from "firebase/auth";
 
 import useFirebaseUser from "../hooks/useFirebaseUser"; // adjust path as needed
 
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   // --- State Management ---
   const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
@@ -73,6 +75,20 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   const messagesEndRef = useRef(null);
 
   const contextMenuRef = useRef(null);
+
+  // Temporary debug login button handler
+  const handleFirebaseLogin = async () => {
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      console.log("✅ Firebase login success:", result.user);
+    } catch (error) {
+      console.error("❌ Firebase login error:", error);
+    }
+  };
+
   // --- Add this new useEffect hook to your WorkArea.jsx component ---
 
   const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
