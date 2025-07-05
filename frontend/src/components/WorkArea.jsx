@@ -37,6 +37,7 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [mobileDrawer, setMobileDrawer] = useState(null); // 'left', 'right', or null
+  const hasAutoSelected = useRef(false);
 
   // Popups and Modals
   const [showNewChatPopup, setShowNewChatPopup] = useState(false);
