@@ -74,33 +74,7 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
 
   const contextMenuRef = useRef(null);
 
-  // Temporary debug login button handler
-  const handleFirebaseLogin = async () => {
-    const auth = getAuth();
-    const provider = new GoogleAuthProvider();
-
-    try {
-      const result = await signInWithPopup(auth, provider);
-      console.log("✅ Firebase login success:", result.user);
-    } catch (error) {
-      console.error("❌ Firebase login error:", error);
-    }
-  };
-
-  // --- Add this new useEffect hook to your WorkArea.jsx component ---
-
-  const hasAutoSelected = useRef(false); // Add this with your other useRef hooks
-
-  // Temporary debug login button JSX
-  const loginButton = (
-    <button
-      onClick={handleFirebaseLogin}
-      className="fixed top-4 left-4 z-50 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700"
-    >
-      🔥 Login with Google (Firebase)
-    </button>
-  );
-
+ 
   useEffect(() => {
     if (!authReady || !firebaseUser) return;
 
@@ -447,35 +421,79 @@ const deleteChat = useCallback(async (sessionId) => {
     }
 }, [API, selectedChat, firebaseUser, authReady, getIdToken]); // ✅ All dependencies are listed
   
-    const onDrop = useCallback(async (acceptedFiles) => {
-      if (!selectedChat) {
-        alert("Please select or create a chat session first before uploading files.");
-        return;
-      }
-      if (acceptedFiles.length === 0) return;
-      const file = acceptedFiles[0];
-      setIsUploading(true);
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("sessionId", selectedChat);
-      try {
+const onDrop = useCallback(async (acceptedFiles) => {
+    // Exit if no valid files were dropped.
+    if (acceptedFiles.length === 0) return;
+
+    const file = acceptedFiles[0];
+    setIsUploading(true);
+
+    try {
         const token = await getIdToken();
+        if (!token) {
+            throw new Error("You must be logged in to upload files.");
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        // --- THIS IS THE KEY LOGIC CHANGE ---
+        // If a chat is already selected, we tell the backend which one.
+        // If not, we send no sessionId, and the backend knows to create a new session.
+        if (selectedChat) {
+            formData.append("sessionId", selectedChat);
+        }
+        // ------------------------------------
+
         const res = await fetch(`${API}/api/ocr`, {
-          method: "POST",
-          body: formData,
-          headers: { Authorization: `Bearer ${token}` },
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                // NOTE: Do not set 'Content-Type' for FormData requests.
+                // The browser handles it automatically with the correct boundary.
+            },
+            body: formData,
         });
-        if (!res.ok) throw new Error("File upload failed on the server.");
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || "File upload failed on the server.");
+        }
+
         const newFileFromDB = await res.json();
+
+        // --- UPDATE THE UI AFTER UPLOAD ---
+
+        // Check if a new session was created (i.e., we started with no selected chat).
+        if (!selectedChat) {
+            const newSessionId = newFileFromDB.sessionId;
+            
+            // Create a temporary session object to immediately update the UI
+            const newSession = {
+                _id: newSessionId,
+                name: file.name, // The backend created a session with this name
+                user: firebaseUser.uid,
+                createdAt: new Date().toISOString(),
+            };
+            
+            // Add the new session to the list and auto-select it.
+            setInitialSessions(prev => ({ [newSessionId]: newSession, ...prev }));
+            setSelectedChat(newSessionId);
+        }
+        
+        // Add the new file to the files list for the current (or new) session.
         setSessionFiles(prevFiles => [...prevFiles, newFileFromDB]);
+        
+        // Automatically select the new file to be displayed in the PDF viewer.
         setSelectedFile(newFileFromDB);
-      } catch (err) {
+
+    } catch (err) {
         console.error("onDrop handler failed:", err);
         alert(`Upload Error: ${err.message}`);
-      } finally {
+    } finally {
         setIsUploading(false);
-      }
-    }, [selectedChat, API, getIdToken]);
+    }
+}, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]); // 
   
 const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChat) return;
@@ -727,7 +745,6 @@ const handleSendMessage = async () => {
 
 return (
   <>
-    {loginButton}
     <div className={`h-screen w-full flex overflow-hidden ${isDark ? 'bg-gray-900 text-gray-100' : 'bg-blue-50 text-gray-900'} transition-colors duration-300`}>
       {/* Backdrop for mobile drawers */}
       {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"></div>}
