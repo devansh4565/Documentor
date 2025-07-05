@@ -5,11 +5,14 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import useFirebaseUser from './hooks/useFirebaseUser'; 
+// In src/App.jsx
 
-// --- Component Imports ---
+// ... other imports
 import WorkArea from './components/WorkArea';
 import MindMap from './components/MindMap';
 import LoginPage from "./components/LoginPage";
+import UploadSection from './components/UploadSection'; // <-- ADD THIS IMPORT
+
 // Note: We don't need the mobile components here if they aren't used in this file.
 
 // --- Helper Components (keep them at the top level) ---
