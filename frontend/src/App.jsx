@@ -1,94 +1,39 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-
-// --- CONTEXT & HOOKS ---
+import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import useFirebaseUser from './hooks/useFirebaseUser'; 
-
-// --- PAGE & LAYOUT COMPONENTS ---
-import WorkArea from './components/WorkArea';
-import MindMap from './components/MindMap';
-import LoginPage from "./components/LoginPage";
-import UploadSection from './components/UploadSection';
-
-// =================================================================
-// --- HELPER COMPONENTS (Defined at the top level for stability) ---
-// =================================================================
+import { UserProvider } from './auth/UserContext'; // Assuming you still use this
+import { getRoutes } from './routes'; // Import the new route config function
 
 /**
- * A simple loading spinner to show while checking authentication.
+ * A small component whose only job is to render the routes
+ * returned by the useRoutes hook.
  */
-const LoadingSpinner = () => (
-    <div className="h-screen w-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-    </div>
-);
-
-/**
- * A layout component that protects all its child routes.
- * It checks the user's authentication status and either renders the
- * requested child route via `<Outlet />` or redirects to the login page.
- */
-const ProtectedRoute = () => {
-    const { user, authReady } = useFirebaseUser();
-
-    // Show a spinner while Firebase is initializing
-    if (!authReady) {
-        return <LoadingSpinner />;
-    }
-
-    // If authentication is ready and a user exists, render the child route.
-    // If not, redirect to the login page.
-    return user ? <Outlet /> : <Navigate to="/login" replace />;
+const AppRoutes = () => {
+    // This state MUST live here, so it can be passed to the route config
+    const [initialSessions, setInitialSessions] = useState({});
+    
+    // Create the route configuration object
+    const routeConfig = getRoutes(initialSessions, setInitialSessions);
+    
+    // The useRoutes hook takes the config and returns the element to render
+    const element = useRoutes(routeConfig);
+    
+    return element;
 };
 
 
-// =================================================================
-// --- THE MAIN APP COMPONENT ---
-// =================================================================
-
+/**
+ * The main App component is now just for providers.
+ */
 const App = () => {
-    // This state is owned by the App component and passed down to children.
-    const [initialSessions, setInitialSessions] = useState({});
-
     return (
-        <ThemeProvider>
-            <Router>
-                <Routes>
-                    {/* --- PUBLIC ROUTES --- */}
-                    {/* These routes are accessible to everyone, logged in or not. */}
-                    
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/" element={<UploadSection />} /> 
-
-                    {/* --- PROTECTED LAYOUT ROUTE --- */}
-                    {/* All routes nested inside here will first pass through ProtectedRoute. */}
-                    <Route element={<ProtectedRoute />}>
-                        
-                        {/* If the user is authenticated, Outlet will render one of these routes */}
-                        <Route
-                            path="/workarea"
-                            element={
-                                <WorkArea
-                                    initialSessions={initialSessions}
-                                    setInitialSessions={setInitialSessions}
-                                />
-                            }
-                        />
-                        <Route path="/mindmap" element={<MindMap />} />
-
-                        {/* You can add more protected routes here, e.g., /settings, /profile, etc. */}
-                        
-                    </Route>
-                    
-                    {/* --- CATCH-ALL (OPTIONAL) --- */}
-                    {/* If a user types a URL that doesn't match any of the above, */}
-                    {/* this will redirect them to the home page. */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-
-                </Routes>
-            </Router>
-        </ThemeProvider>
+        <UserProvider>
+            <ThemeProvider>
+                <Router>
+                    <AppRoutes />
+                </Router>
+            </ThemeProvider>
+        </UserProvider>
     );
 };
 
