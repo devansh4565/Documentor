@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { UserProvider } from './auth/UserContext'; // Assuming you still use this
-import { getRoutes } from './routes'; // Import the new route config function
+import { getRoutes } from './routes.jsx'; // Change this from './routes' to './routes.jsx'
+// ...
 
 /**
  * A small component whose only job is to render the routes
