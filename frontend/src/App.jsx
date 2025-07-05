@@ -1,34 +1,39 @@
-import React, { useContext, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// In src/App.jsx
 
+// --- Your imports are mostly correct, but let's clean them up slightly ---
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import { useMediaQuery } from './hooks/useMediaQuery';
 import useFirebaseUser from './hooks/useFirebaseUser'; 
-import UploadSection from './components/UploadSection';
+
+// --- Component Imports ---
 import WorkArea from './components/WorkArea';
 import MindMap from './components/MindMap';
-import MobileChatList from './components/mobile/MobileChatList';
-import MobileChatView from './components/mobile/MobileChatView';
-import MobileFileList from './components/mobile/MobileFileList';
-import MobilePdfView from './components/mobile/MobilePdfView';
 import LoginPage from "./components/LoginPage";
+// Note: We don't need the mobile components here if they aren't used in this file.
 
-import { UserContext, UserProvider } from './auth/UserContext';
-
-// --- Helper Components ---
+// --- Helper Components (keep them at the top level) ---
 const LoadingSpinner = () => (
     <div className="h-screen w-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
     </div>
 );
 
-// A component to protect routes
-const ProtectedRoute = ({ children }) => {
+// ✅ CHANGE #1: ProtectedRoute now renders <Outlet /> instead of `children`
+const ProtectedRoute = () => {
     const { user, authReady } = useFirebaseUser();
-    if (!authReady) return <LoadingSpinner />;
-    return user ? children : <Navigate to="/login" replace />;
+
+    if (!authReady) {
+        return <LoadingSpinner />;
+    }
+
+    // If there's a user, render the child route via <Outlet />.
+    // Otherwise, redirect to the login page.
+    return user ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
+
+// --- The Main App Component ---
 const App = () => {
     const [initialSessions, setInitialSessions] = useState({});
 
@@ -36,32 +41,31 @@ const App = () => {
         <ThemeProvider>
             <Router>
                 <Routes>
-                    {/* Public route for logging in */}
+                    {/* --- PUBLIC ROUTES --- */}
                     <Route path="/login" element={<LoginPage />} />
+                    {/* Assuming UploadSection is also public/a landing page */}
+                    <Route path="/" element={<UploadSection />} /> 
 
-                    {/* Protected routes */}
-                    <Route 
-                        path="/workarea"
-                        element={
-                            <ProtectedRoute>
+                    {/* ✅ CHANGE #2: This is the stable Layout Route structure */}
+                    <Route element={<ProtectedRoute />}>
+                        {/* All routes nested inside here are now protected */}
+                        {/* and WILL NOT remount on state changes. */}
+                        
+                        <Route
+                            path="/workarea"
+                            element={
                                 <WorkArea
                                     initialSessions={initialSessions}
                                     setInitialSessions={setInitialSessions}
                                 />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/mindmap"
-                        element={
-                            <ProtectedRoute>
-                                <MindMap />
-                            </ProtectedRoute>
-                        }
-                    />
+                            }
+                        />
+                        <Route path="/mindmap" element={<MindMap />} />
+                    </Route>
                     
-                    {/* Default route redirects based on login status */}
-                    <Route path="*" element={<Navigate to="/workarea" replace />} />
+                    {/* Optional: A catch-all if you want to redirect any other typed URL */}
+                    <Route path="*" element={<Navigate to="/" />} />
+
                 </Routes>
             </Router>
         </ThemeProvider>
