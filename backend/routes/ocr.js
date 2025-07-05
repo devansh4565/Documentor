@@ -1,5 +1,6 @@
 const express = require("express");
 const multer = require("multer");
+const os = require('os');
 const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
@@ -8,7 +9,8 @@ const ChatSession = require("../models/ChatSession");
 const verifyFirebaseToken = require('../middleware/verifyFirebaseToken'); // ✅ FIX: Use the correct Firebase middleware
 
 const router = express.Router();
-const uploadDir = "uploads";
+const uploadDir = path.join(os.tmpdir(), "documentor_uploads"); 
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 // Create the temporary upload directory if it doesn't exist
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
@@ -22,7 +24,7 @@ const upload = multer({ storage });
 
 // The route is now protected by our Firebase middleware
 // POST /api/ocr
-router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) => {
+router.post("/", upload.single("file"), verifyFirebaseToken, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
