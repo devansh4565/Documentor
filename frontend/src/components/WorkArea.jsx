@@ -18,115 +18,6 @@ import 'react-pdf/dist/Page/TextLayer.css';
 // PDF.js worker configuration
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-// =================================================================
-// --- SUB-COMPONENTS (Defined at top level for stability) ---
-// =================================================================
-
-const LeftPanelContent = React.memo(({
-  isDark, isUploading, getRootProps, getInputProps, isDragActive,
-  sessionFiles, selectedFile, setSelectedFile, selectedFilesForSummary, setSelectedFilesForSummary,
-  initialSessions, selectedChat, setSelectedChat, handleRightClick,
-  setShowNewChatPopup, isDesktop, setMobileDrawer
-}) => (
-    <>
-      <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
-        <div>
-          <h2 className="text-xl font-bold text-center mb-4">File List</h2>
-          <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDark ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
-            <input {...getInputProps()} />
-            <p className="text-sm font-medium">{isUploading ? "Uploading..." : (isDragActive ? "Drop files here..." : "Drag & drop or click")}</p>
-          </div>
-          <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
-            {sessionFiles.map((file) => {
-              const isSelectedForSummary = selectedFilesForSummary.some(f => f._id === file._id);
-              const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
-              return (
-                <div key={file._id} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                  <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => { setSelectedFile(file); if (!isDesktop) setMobileDrawer(null); }}>
-                    <p className="font-medium text-sm truncate">{file.name}</p>
-                  </div>
-                  <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col min-h-0">
-          <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
-            {Object.values(initialSessions || {})
-              .filter(session => session?.name && session?.createdAt)
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-              .map((session) => (
-                <div
-                  key={session._id}
-                  onClick={() => { setSelectedChat(session._id); if (!isDesktop) setMobileDrawer(null); }}
-                  className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === session._id ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}
-                  onContextMenu={(e) => handleRightClick(e, session._id)}
-                >
-                  <p className="text-sm font-medium truncate">{session.name}</p>
-                  <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleString()}</p>
-                </div>
-              ))}
-          </div>
-        </div>
-      </div>
-      <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-        <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
-      </div>
-    </>
-));
-
-const RightPanelContent = React.memo(({
-  exportChat, messages, loading, botTyping, messagesEndRef,
-  newMessage, setNewMessage, handleSendMessage, isDark
-}) => (
-    <>
-      <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
-        <h2 className="text-xl font-bold">Chat</h2>
-        <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">
-          Export
-        </button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg) => (
-          <div key={msg._id || msg.text + Date.now()} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
-            <p className="text-sm">{msg.text}</p>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex items-center gap-2 p-3">
-            <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div>
-          </div>
-        )}
-        {botTyping && (
-          <div className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700">
-            <p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-      <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
-        <div className="flex gap-2">
-          <input
-            id="chat-message-input"
-            name="chat-message-input"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-            placeholder="Type a message..."
-            className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
-          />
-          <button onClick={handleSendMessage} disabled={loading} className={`px-4 font-semibold rounded-lg text-white ${isDark ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}>
-            Send
-          </button>
-        </div>
-      </div>
-    </>
-));
-
 
 // =================================================================
 // --- MAIN WORKAREA COMPONENT ---
@@ -318,17 +209,108 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   
   const { user } = useFirebaseUser(); // Get user for Header
 
+   // =================================================================
+  // --- ADD THIS SECTION ---
+  // =================================================================
+
+  const leftPanel = (
+    <>
+      <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
+        <div>
+          <h2 className="text-xl font-bold text-center mb-4">File List</h2>
+          <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
+            <input {...getInputProps()} />
+            <p className="text-sm font-medium">{loading ? "Uploading..." : (isDragActive ? "Drop files here..." : "Drag & drop or click")}</p>
+          </div>
+          <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
+            {sessionFiles.map((file) => {
+              const isSelectedForSummary = selectedFilesForSummary.some(f => f._id === file._id);
+              const toggleSelectForSummary = () => setSelectedFilesForSummary(p => isSelectedForSummary ? p.filter(f => f._id !== file._id) : [...p, file]);
+              return (
+                <div key={file._id} className={`p-2 rounded-lg flex items-center justify-between transition-colors ${selectedFile?._id === file._id ? 'bg-blue-200 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                  <div className="flex-1 min-w-0 pr-2 cursor-pointer" onClick={() => setSelectedFile(file)}>
+                    <p className="font-medium text-sm truncate">{file.name}</p>
+                  </div>
+                  <input type="checkbox" checked={isSelectedForSummary} onChange={toggleSelectForSummary} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col min-h-0">
+          <h2 className="text-xl font-bold text-center mb-4">Previous Chats</h2>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2">
+            {Object.values(initialSessions || {})
+              .filter(session => session?.name && session?.createdAt)
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+              .map((session) => (
+                <div key={session._id} onClick={() => setSelectedChat(session._id)} onContextMenu={(e) => handleRightClick(e, session._id)} className={`p-2 rounded-lg cursor-pointer transition-colors ${selectedChat === session._id ? "bg-blue-200 dark:bg-purple-800" : "bg-gray-100 dark:bg-gray-700"}`}>
+                  <p className="text-sm font-medium truncate">{session.name}</p>
+                  <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleString()}</p>
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+        <button onClick={() => setShowNewChatPopup(true)} className={`w-full py-2.5 font-semibold rounded-lg text-white shadow-md transition-all ${theme === 'dark' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>+ New Chat</button>
+      </div>
+    </>
+  );
+
+  const rightPanel = (
+    <>
+      <div className="flex-shrink-0 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+        <h2 className="text-xl font-bold">Chat</h2>
+        <button onClick={exportChat} className="text-sm px-3 py-1.5 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600">Export</button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+        {messages.map((msg) => (
+          <div key={msg._id || `msg-${msg.text.slice(0, 10)}`} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
+            <p className="text-sm">{msg.text}</p>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex items-center gap-2 p-3">
+            <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></div>
+          </div>
+        )}
+        {botTyping && (
+          <div className="p-3 rounded-xl w-fit max-w-[85%] bg-gray-200 dark:bg-gray-700">
+            <p className="text-sm font-mono whitespace-pre-wrap break-words">{botTyping}<span className="animate-pulse">▍</span></p>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="flex-shrink-0 p-4 border-t dark:border-gray-700">
+        <div className="flex gap-2">
+          <input
+            id="chat-message-input"
+            name="chat-message-input"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+            placeholder="Type a message..."
+            className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+          />
+          <button onClick={handleSendMessage} disabled={loading} className={`px-4 font-semibold rounded-lg text-white ${theme === 'dark' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}>Send</button>
+        </div>
+      </div>
+    </>
+  );
   return (
     <>
       <div className={`h-screen w-full flex overflow-hidden ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-blue-50 text-gray-900'}`}>
         {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 lg:hidden"></div>}
 
         <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-all duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
-          <LeftPanelContent {...{ isDark: theme === 'dark', isUploading, getRootProps, getInputProps, isDragActive, sessionFiles, selectedFile, setSelectedFile, selectedFilesForSummary, setSelectedFilesForSummary, initialSessions, selectedChat, setSelectedChat, handleRightClick, setShowNewChatPopup, isDesktop, setMobileDrawer }} />
+         {leftPanel}
         </aside>
         
         <aside className={`fixed top-0 left-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'left' ? 'translate-x-0' : '-translate-x-full'}`}>
-            <LeftPanelContent {...{ isDark: theme === 'dark', isUploading, getRootProps, getInputProps, isDragActive, sessionFiles, selectedFile, setSelectedFile, selectedFilesForSummary, setSelectedFilesForSummary, initialSessions, selectedChat, setSelectedChat, handleRightClick, setShowNewChatPopup, isDesktop, setMobileDrawer }} />
+        { leftPanel }
         </aside>
 
         <main className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -367,11 +349,11 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
         </main>
 
         <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-all duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
-          <RightPanelContent {...{ exportChat, messages, loading, botTyping, messagesEndRef, newMessage, setNewMessage, handleSendMessage, isDark: theme === 'dark' }} />
+            {rightPanel}
         </aside>
         
         <aside className={`fixed top-0 right-0 w-80 h-full z-40 flex flex-col shadow-xl lg:hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ${mobileDrawer === 'right' ? 'translate-x-0' : 'translate-x-full'}`}>
-          <RightPanelContent {...{ exportChat, messages, loading, botTyping, messagesEndRef, newMessage, setNewMessage, handleSendMessage, isDark: theme === 'dark' }} />
+          { rightPanel }
         </aside>
 
         {/* Popups and Absolute Elements */}
