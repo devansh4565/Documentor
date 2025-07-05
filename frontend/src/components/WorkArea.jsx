@@ -9,6 +9,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
 import { auth } from '../firebase';  // Import Firebase auth
+import useWhyDidYouUpdate from '../hooks/useWhyDidYouUpdate'; // Import the hook
 
 // CSS Imports for react-pdf are essential for rendering
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -26,10 +27,9 @@ import useFirebaseUser from "../hooks/useFirebaseUser"; // adjust path as needed
 const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
   // --- State Management ---
   const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
-
+  useWhyDidYouUpdate('WorkArea', props);
   // Replace all import.meta.env.VITE_API_BASE_URL with API variable in this file
   const isDesktop = useMediaQuery('(min-width: 1024px)');
-
   // Firebase Auth State from custom hook
   const { user: firebaseUser, authReady, getIdToken } = useFirebaseUser();
 
