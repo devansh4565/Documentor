@@ -1,41 +1,51 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, useRoutes } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import { UserProvider } from './auth/UserContext'; // Assuming you still use this
-import { getRoutes } from './routes.jsx'; // Change this from './routes' to './routes.jsx'
-// ...
+import { UserProvider } from './auth/UserContext';
 
-/**
- * A small component whose only job is to render the routes
- * returned by the useRoutes hook.
- */
-const AppRoutes = () => {
-    // This state MUST live here, so it can be passed to the route config
-    const [initialSessions, setInitialSessions] = useState({});
-    
-    // Create the route configuration object
-    const routeConfig = getRoutes(initialSessions, setInitialSessions);
-    
-    // The useRoutes hook takes the config and returns the element to render
-    const element = useRoutes(routeConfig);
-    
-    return element;
-};
+// --- COMPONENT IMPORTS ---
+import ProtectedRoute from './components/ProtectedRoute'; // Import the layout
+import WorkArea from './components/WorkArea';
+import LoginPage from './components/LoginPage';
+import UploadSection from './components/UploadSection';
+import MindMap from './components/MindMap';
 
 
-/**
- * The main App component is now just for providers.
- */
-const App = () => {
-    return (
-        <UserProvider>
-            <ThemeProvider>
-                <Router>
-                    <AppRoutes />
-                </Router>
-            </ThemeProvider>
-        </UserProvider>
-    );
-};
+function App() {
+  const [initialSessions, setInitialSessions] = useState({});
+
+  return (
+    <UserProvider>
+      <ThemeProvider>
+        <Router>
+          <Routes>
+            {/* --- PUBLIC ROUTES --- */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<UploadSection />} />
+
+            {/* --- PROTECTED ROUTES --- */}
+            {/* The 'element' is the stable ProtectedRoute component. */}
+            {/* All children are rendered via its <Outlet />. */}
+            <Route element={<ProtectedRoute />}>
+              <Route
+                path="/workarea"
+                element={
+                  <WorkArea
+                    initialSessions={initialSessions}
+                    setInitialSessions={setInitialSessions}
+                  />
+                }
+              />
+              <Route path="/mindmap" element={<MindMap />} />
+            </Route>
+
+            {/* --- CATCH-ALL REDIRECT --- */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </UserProvider>
+  );
+}
 
 export default App;
