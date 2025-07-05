@@ -24,7 +24,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from
 
 import useFirebaseUser from "../hooks/useFirebaseUser"; // adjust path as needed
 
-const WorkArea = ({ user, initialSessions, setInitialSessions }) => {
+const WorkArea = ({ user, initialSessions, setInitialSessions }, props) => {
   // --- State Management ---
   const API = process.env.REACT_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'https://documentor-backend-btiq.onrender.com'; // Ensure this is set correctly
   useWhyDidYouUpdate('WorkArea', props);
