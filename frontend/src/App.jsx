@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 import { ThemeProvider } from './context/ThemeContext';
 import { useMediaQuery } from './hooks/useMediaQuery';
-
+import useFirebaseUser from './hooks/useFirebaseUser'; 
 import UploadSection from './components/UploadSection';
 import WorkArea from './components/WorkArea';
 import MindMap from './components/MindMap';
