@@ -496,7 +496,7 @@ const onDrop = useCallback(async (acceptedFiles) => {
     }
 }, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]); // 
   
-const handleSendMessage = async () => {
+const handleSendMessage = useCallback ( async () => {
     if (!newMessage.trim() || !selectedChat) return;
     const userMessageText = newMessage;
     const userMessageForState = { sender: 'user', text: userMessageText };
@@ -541,7 +541,7 @@ const handleSendMessage = async () => {
         setLoading(false);
         setBotTyping("");
     }
-};
+});
 
   const handleMultiFileSummarize = async () => {
       if (selectedFilesForSummary.length === 0) return;
@@ -641,8 +641,10 @@ const handleSendMessage = async () => {
   // --- RENDER ---
   const isDark = theme === "dark";
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] }
+      onDrop, // Pass the memoized onDrop function
+      accept: { 'application/pdf': ['.pdf'] },
+      noClick: false, // Ensures the dropzone is clickable
+      noKeyboard: true,
   });
 
   const LeftPanelContent = () => (
