@@ -8,7 +8,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import axios from "axios";
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase"; // Import the instance
 import useFirebaseUser from "../hooks/useFirebaseUser";
 
 // CSS Imports for react-pdf are essential for rendering
@@ -59,7 +60,6 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {

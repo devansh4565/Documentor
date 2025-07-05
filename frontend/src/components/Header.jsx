@@ -1,10 +1,10 @@
 import React from 'react';
-import { getAuth, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase'; // ✅ IMPORT the initialized auth instance
 
 const Header = ({ user }) => { // Assume user object is passed as a prop
     const navigate = useNavigate();
-    const auth = getAuth();
 
     const handleLogout = async () => {
         try {
