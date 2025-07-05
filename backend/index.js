@@ -39,7 +39,7 @@ const highlightRoutes = require("./routes/highlights"); // Assuming you might ha
 
 // --- Configuration ---
 connectDB();
-
+app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -102,9 +102,9 @@ app.use('/api/auth', authRoutes);
 console.log("✅ Auth routes registered to /api/auth");
 
 // --- API Routes ---
-app.use("/api/chats", chatRoutes);
+app.use("/api/chats", require("./routes/chatRoutes"));
 // app.use("/api/ocr", ocrRoutes);
-app.use("/api/upload", uploadRoutes); 
+app.use("/api/upload", require("./routes/upload"));
 app.use('/api/files', filesRoutes);
 app.use("/api/highlights", highlightRoutes);
 
