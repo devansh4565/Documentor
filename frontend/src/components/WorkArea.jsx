@@ -51,6 +51,9 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   const { theme, toggleTheme } = useTheme();
   const messagesEndRef = useRef(null);
   const contextMenuRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
 
   // --- EFFECTS ---
 
@@ -140,31 +143,58 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
     } catch (err) { console.error("Failed to create chat:", err); }
   }, [firebaseUser, newChatName, API, getIdToken, setInitialSessions]);
 
-  const onDrop = useCallback(async (acceptedFiles) => {
+const onDrop = useCallback(async (acceptedFiles) => {
     if (acceptedFiles.length === 0 || !firebaseUser) return;
+
     const file = acceptedFiles[0];
     setIsUploading(true);
+    setUploadProgress(0); // Reset progress on new upload
+
     try {
         const token = await getIdToken();
+        if (!token) throw new Error("You must be logged in to upload files.");
+
         const formData = new FormData();
         formData.append("file", file);
         if (selectedChat) formData.append("sessionId", selectedChat);
+
+        // --- Use axios for upload with progress tracking ---
+        const res = await axios.post(`${API}/api/ocr`, formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data',
+            },
+            // This function is called by axios during the upload
+            onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                setUploadProgress(percentCompleted);
+            },
+        });
+        // --- End of axios call ---
+
+        // Once upload is 100%, we can indicate OCR is happening
+        // (The backend takes over from here)
         
-        const res = await fetch(`${API}/api/ocr`, { method: "POST", headers: { Authorization: `Bearer ${token}`}, body: formData });
-        if (!res.ok) throw new Error("File upload failed");
-        
-        const newFileFromDB = await res.json();
+        const newFileFromDB = res.data;
+
         if (!selectedChat) {
             const newSessionId = newFileFromDB.sessionId;
             const newSession = { _id: newSessionId, name: file.name, user: firebaseUser.uid, createdAt: new Date().toISOString() };
             setInitialSessions(prev => ({ [newSessionId]: newSession, ...prev }));
             setSelectedChat(newSessionId);
         }
+        
         setSessionFiles(prevFiles => [...prevFiles, newFileFromDB]);
         setSelectedFile(newFileFromDB);
-    } catch (err) { console.error("onDrop failed:", err); } 
-    finally { setIsUploading(false); }
-  }, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]);
+
+    } catch (err) {
+        console.error("onDrop handler failed:", err);
+        alert(`Upload Error: ${err.message || 'An unknown error occurred'}`);
+    } finally {
+        setIsUploading(false);
+        setUploadProgress(0); // Reset progress after completion or error
+    }
+}, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]);
 
   const handleSendMessage = useCallback(async () => {
     if (!newMessage.trim() || !selectedChat) return;
@@ -195,7 +225,55 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
     setContextMenu({ x: e.pageX, y: e.pageY, sessionId });
   }, []);
 
-  const exportChat = useCallback(() => { /* ...export logic... */ }, [messages]);
+// In frontend/src/components/WorkArea.jsx
+
+const exportChat = useCallback(() => {
+    // 1. Guard Clause: Don't do anything if there are no messages to export.
+    if (messages.length === 0) {
+        alert("There are no messages in this chat to export.");
+        return;
+    }
+
+    // 2. Format the chat content into a readable string.
+    // We'll add a header with the chat name and export date.
+    const chatName = initialSessions[selectedChat]?.name || 'Untitled Chat';
+    const exportDate = new Date().toLocaleString();
+
+    let fileContent = `Chat Export\n`;
+    fileContent += `Session: ${chatName}\n`;
+    fileContent += `Exported on: ${exportDate}\n`;
+    fileContent += `------------------------------------\n\n`;
+
+    fileContent += messages.map(msg => {
+        const timestamp = msg.createdAt || new Date().toISOString(); // Use message timestamp if available
+        const sender = msg.sender.charAt(0).toUpperCase() + msg.sender.slice(1); // Capitalize sender
+        return `[${sender} - ${new Date(timestamp).toLocaleTimeString()}]\n${msg.text}\n`;
+    }).join("\n------------------------------------\n\n");
+
+    // 3. Create a 'Blob' from the text content.
+    // A Blob is a file-like object of immutable, raw data.
+    const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" });
+
+    // 4. Create a temporary URL for the Blob.
+    const url = URL.createObjectURL(blob);
+
+    // 5. Create a temporary anchor (<a>) element to trigger the download.
+    const link = document.createElement("a");
+    link.href = url;
+    
+    // Sanitize the chat name to create a valid filename.
+    const safeChatName = chatName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.download = `chat_export_${safeChatName}.txt`;
+    
+    // 6. Programmatically "click" the link to start the download.
+    document.body.appendChild(link); // Required for Firefox
+    link.click();
+    
+    // 7. Clean up by removing the temporary link and revoking the URL.
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+}, [messages, initialSessions, selectedChat]); // Add dependencies
 
   // --- useDropzone hook (stable config) ---
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -218,9 +296,23 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
       <div className="flex-1 min-h-0 p-4 flex flex-col gap-6">
         <div>
           <h2 className="text-xl font-bold text-center mb-4">File List</h2>
-          <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
-            <input {...getInputProps()} />
-            <p className="text-sm font-medium">{loading ? "Uploading..." : (isDragActive ? "Drop files here..." : "Drag & drop or click")}</p>
+          <div {...getRootProps()} className={`p-4 text-center border-2 border-dashed rounded-lg cursor-pointer transition-colors relative ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'} ${isDragActive ? 'bg-blue-500/10' : 'hover:bg-gray-500/10'}`}>
+              <input {...getInputProps()} />
+              {isUploading ? (
+                  <div className="w-full">
+                      <p className="text-sm font-semibold mb-2">
+                          {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing PDF (OCR)...'}
+                      </p>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                          <div 
+                              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                              style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                      </div>
+                  </div>
+              ) : (
+                  <p className="text-sm font-medium">{isDragActive ? "Drop files here..." : "Drag & drop or click"}</p>
+              )}
           </div>
           <div className="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2">
             {sessionFiles.map((file) => {
