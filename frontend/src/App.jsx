@@ -4,12 +4,13 @@ import { ThemeProvider } from './context/ThemeContext';
 import { UserProvider } from './auth/UserContext';
 
 // --- COMPONENT IMPORTS ---
-import ProtectedRoute from './components/ProtectedRoute'; // Import the layout
+import ProtectedRoute from './components/ProtectedRoute'; // ✅ ADD THIS IMPORT
 import WorkArea from './components/WorkArea';
 import LoginPage from './components/LoginPage';
 import UploadSection from './components/UploadSection';
 import MindMap from './components/MindMap';
 
+// ❌ DELETE the const ProtectedRoute = () => ... and const LoadingSpinner = () => ... definitions from this file.
 
 function App() {
   const [initialSessions, setInitialSessions] = useState({});
@@ -24,8 +25,7 @@ function App() {
             <Route path="/" element={<UploadSection />} />
 
             {/* --- PROTECTED ROUTES --- */}
-            {/* The 'element' is the stable ProtectedRoute component. */}
-            {/* All children are rendered via its <Outlet />. */}
+            {/* This now correctly uses the imported ProtectedRoute component */}
             <Route element={<ProtectedRoute />}>
               <Route
                 path="/workarea"
