@@ -159,7 +159,7 @@ const onDrop = useCallback(async (acceptedFiles) => {
         if (selectedChat) formData.append("sessionId", selectedChat);
 
         // --- Use axios for upload with progress tracking ---
-        const res = await axios.post(`${API}/api/ocr`, formData, {
+        const res = await axios.post(`${API}/api/upload`, formData, {
             headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'multipart/form-data',
