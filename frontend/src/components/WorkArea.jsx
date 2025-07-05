@@ -93,6 +93,15 @@ const WorkArea = ({ user, initialSessions, setInitialSessions }, props) => {
     }
   }, [initialSessions, authReady, firebaseUser]); // This dependency array ensures it runs when `initialSessions` data arrives and auth is ready.
     // --- Effects ---
+      useEffect(() => {
+    // This will log to the console exactly ONCE when the component is first mounted.
+    console.log('%cWorkArea MOUNTED', 'color: green; font-weight: bold;');
+
+    // This function will run exactly ONCE when the component is unmounted (destroyed).
+    return () => {
+      console.log('%cWorkArea UNMOUNTED', 'color: red; font-weight: bold;');
+    };
+  }, []); // The empty dependency array [] is crucial.
 
   // Effect for responsive PDF width
   useEffect(() => {
