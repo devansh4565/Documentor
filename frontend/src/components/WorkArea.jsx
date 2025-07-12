@@ -197,70 +197,69 @@ const onDrop = useCallback(async (acceptedFiles) => {
 }, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]);
 
 const handleSendMessage = useCallback(async () => {
-    // 1. Guard Clause
+    // 1. Guard Clause & Optimistic UI for user message
     if (!newMessage.trim() || !selectedChat) return;
-
     const userMessageText = newMessage;
-    const optimisticUserMessage = {
-        sender: 'user',
-        text: userMessageText,
-        _id: `temp-user-${Date.now()}`
-    };
-
-    // 2. Optimistic UI Updates
+    const optimisticUserMessage = { _id: `temp-user-${Date.now()}`, sender: 'user', text: userMessageText };
     setMessages(prev => [...prev, optimisticUserMessage]);
     setNewMessage("");
-    setLoading(true); // This can show a generic "..." loading indicator
-    setBotTyping(""); // Clear any previous typing animation
+    setLoading(true);
 
     try {
         const token = await getIdToken();
         const authHeader = { headers: { Authorization: `Bearer ${token}` } };
         const historyForAPI = [...messages, optimisticUserMessage].slice(-8).map(msg => ({ role: msg.sender, content: msg.text }));
 
-        // 3. Save user message and get AI response
-        await axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "user", content: userMessageText }, authHeader);
-        const aiResult = await axios.post(`${API}/api/ask`, { history: historyForAPI, fileContent: selectedFile?.content || "" }, authHeader);
-        const botResponseText = aiResult.data.response || "I'm sorry, I encountered an error.";
+        // 2. Save user message and get AI response in parallel
+        const userMessagePromise = axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "user", content: userMessageText }, authHeader);
+        const aiResultPromise = axios.post(`${API}/api/ask`, { history: historyForAPI, fileContent: selectedFile?.content || "" }, authHeader);
         
-        // 4. Turn off the generic loading indicator
+        const [, aiResult] = await Promise.all([userMessagePromise, aiResultPromise]);
+        
+        const botResponseText = aiResult.data.response || "I'm sorry, I encountered an error.";
         setLoading(false);
 
-        // 5. Animate the bot's response with the "typing" effect
+        // 3. Animate the bot's response using the `botTyping` state
         let i = 0;
         const typingInterval = setInterval(() => {
             if (i < botResponseText.length) {
                 setBotTyping(botResponseText.slice(0, i + 1));
                 i++;
             } else {
+                // --- THIS IS THE CRITICAL FIX ---
                 clearInterval(typingInterval);
-                
-                // --- THE CRITICAL FIX ---
-                // After the animation is complete, save the final bot message to the DB
-                // and then add the *real*, complete message object to the state.
-                axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "assistant", content: botResponseText }, authHeader)
-                    .then(res => {
-                        // Add the final message from the DB to the messages array
-                        setMessages(prev => [...prev, res.data]);
-                        // Clear the typing animation state
-                        setBotTyping("");
-                    })
-                    .catch(dbError => {
-                        console.error("Failed to save bot message:", dbError);
-                        // Still add the message to the UI even if DB save fails
-                        const fallbackBotMessage = { sender: 'assistant', text: botResponseText, _id: `fallback-bot-${Date.now()}`};
-                        setMessages(prev => [...prev, fallbackBotMessage]);
-                        setBotTyping("");
-                    });
-                // -------------------------
+
+                // A. Create the final bot message object for the UI
+                const finalBotMessage = {
+                    _id: `temp-bot-${Date.now()}`, // Give it a temporary ID
+                    sender: 'assistant',
+                    text: botResponseText, // Use the fully animated text
+                };
+
+                // B. Add the final message to the state and clear the animation
+                setMessages(prev => [...prev, finalBotMessage]);
+                setBotTyping("");
+
+                // C. Asynchronously save the bot's message to the database in the background.
+                // We don't need to wait for this to finish to show the message.
+                // This is a "fire and forget" operation from the UI's perspective.
+                axios.post(
+                    `${API}/api/chats/${selectedChat}/messages`,
+                    { role: "assistant", content: botResponseText },
+                    authHeader
+                ).catch(err => {
+                    console.error("Background save of bot message failed:", err);
+                    // The user doesn't need to see an error here, the message is already in the chat.
+                });
+                // ------------------------------------
             }
-        }, 30); // Adjust typing speed (milliseconds)
+        }, 30);
 
     } catch (err) {
         console.error("Error in handleSendMessage:", err);
         setLoading(false);
         setBotTyping("");
-        setMessages(prev => [...prev, { sender: 'assistant', text: '⚠️ Error getting response.', _id: `err-${Date.now()}` }]);
+        setMessages(prev => [...prev, { _id: `err-${Date.now()}`, sender: 'assistant', text: '⚠️ Error getting response.' }]);
     }
 }, [newMessage, selectedChat, messages, selectedFile, API, getIdToken]);
 
