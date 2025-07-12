@@ -196,29 +196,68 @@ const onDrop = useCallback(async (acceptedFiles) => {
     }
 }, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]);
 
-  const handleSendMessage = useCallback(async () => {
+const handleSendMessage = useCallback(async () => {
+    // 1. Guard Clause: Don't send empty messages.
     if (!newMessage.trim() || !selectedChat) return;
-    const tempId = `temp-${Date.now()}`;
-    const userMessage = { sender: 'user', text: newMessage, _id: tempId };
-    const historyForAPI = [...messages, userMessage].slice(-8).map(msg => ({ role: msg.sender, content: msg.text }));
+
+    const userMessageText = newMessage;
+    const userMessageForState = {
+        sender: 'user',
+        text: userMessageText,
+        _id: `temp-user-${Date.now()}` // Temporary ID for optimistic UI
+    };
     
-    setMessages(prev => [...prev, userMessage]);
+    // 2. Optimistic UI Updates
+    setMessages(prev => [...prev, userMessageForState]);
     setNewMessage("");
     setLoading(true);
 
     try {
         const token = await getIdToken();
         const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-        await axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "user", content: userMessage.text }, authHeader);
-        const res = await axios.post(`${API}/api/ask`, { history: historyForAPI, fileContent: selectedFile?.content || "" }, authHeader);
-        const botResponseText = res.data.response;
-        const savedBotMessage = await axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "assistant", content: botResponseText }, authHeader);
-        setMessages(prev => prev.map(m => m._id === tempId ? userMessage : m).concat(savedBotMessage.data));
+        const historyForAPI = [...messages, userMessageForState].slice(-8).map(msg => ({ role: msg.sender, content: msg.text }));
+
+        // 3. Perform all backend operations
+        // A) Save user's message
+        await axios.post(
+            `${API}/api/chats/${selectedChat}/messages`,
+            { role: "user", content: userMessageText },
+            authHeader
+        );
+
+        // B) Get AI response
+        const aiResponse = await axios.post(
+            `${API}/api/ask`,
+            { history: historyForAPI, fileContent: selectedFile?.content || "" },
+            authHeader
+        );
+        const botResponseText = aiResponse.data.response || "Sorry, I couldn't get a response.";
+
+        // C) Save bot's message
+        const savedBotMessageResult = await axios.post(
+            `${API}/api/chats/${selectedChat}/messages`,
+            { role: "assistant", content: botResponseText },
+            authHeader
+        );
+
+        // ✅ THE CRITICAL FIX:
+        // Get the complete bot message object that was just saved to the database.
+        const finalBotMessage = savedBotMessageResult.data;
+
+        // Add this final, complete object to our messages state.
+        setMessages(prev => [...prev, finalBotMessage]);
+
     } catch (err) {
         console.error("Error in handleSendMessage:", err);
-        setMessages(prev => [...prev, { sender: 'assistant', text: `⚠️ Error: ${err.message}`, _id: `err-${Date.now()}`}]);
-    } finally { setLoading(false); }
-  }, [newMessage, selectedChat, messages, selectedFile, API, getIdToken]);
+        setMessages(prev => [...prev, {
+            sender: 'assistant',
+            text: `⚠️ An error occurred. Please try again.`,
+            _id: `err-${Date.now()}`
+        }]);
+    } finally {
+        setLoading(false);
+    }
+}, [newMessage, selectedChat, messages, selectedFile, API, getIdToken]);
 
   const handleRightClick = useCallback((e, sessionId) => {
     e.preventDefault();
