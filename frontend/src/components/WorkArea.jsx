@@ -508,8 +508,14 @@ const exportChat = useCallback(() => {
         </AnimatePresence>
 
         <div className="absolute top-4 right-4 z-20 flex items-center gap-4">
-            <button onClick={toggleTheme} className={`p-2 rounded-full shadow transition-all duration-300 ${theme === 'light' ? 'bg-blue-200 hover:bg-blue-300' : 'bg-purple-700 hover:bg-purple-600'}`}><Moon size={20} /></button>
-            <div className="lg:hidden flex gap-2">
+                <button
+                  onClick={toggleTheme}
+                  className={`absolute top-6 right-6 p-2 rounded-full shadow hover:scale-105 transition-all duration-300 ring-2 ring-offset-2 ${
+                    theme === 'light' ? 'bg-blue-200 hover:bg-blue-300 text-blue-800 ring-blue-400' : 'bg-purple-700 hover:bg-purple-600 text-yellow-300 ring-purple-400'
+                  }`}
+                >
+                  {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                </button>            <div className="lg:hidden flex gap-2">
                 <button onClick={() => setMobileDrawer('left')}><Menu size={22}/></button>
                 <button onClick={() => setMobileDrawer('right')}><Menu size={22}/></button>
             </div>
