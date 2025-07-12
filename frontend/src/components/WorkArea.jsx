@@ -53,6 +53,7 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   const contextMenuRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [mindMapExists, setMindMapExists] = useState(false);
 
 
   // --- EFFECTS ---
@@ -61,6 +62,35 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
     console.log('%cWorkArea MOUNTED', 'color: green; font-weight: bold;');
     return () => console.log('%cWorkArea UNMOUNTED', 'color: red; font-weight: bold;');
   }, []);
+  // In WorkArea.jsx, with your other useEffects
+
+useEffect(() => {
+    // This async function will check the status from the backend
+    const checkMindMapStatus = async () => {
+        // If no chat is selected, we know a mind map can't exist for it.
+        // Reset the state and exit.
+        if (!selectedChat) {
+            setMindMapExists(false);
+            return;
+        }
+
+        try {
+            // Call the new unprotected endpoint. No token is needed for this version.
+            const res = await axios.get(`${API}/api/mindmap/exists/${selectedChat}`);
+            
+            // Update our state with the boolean value from the backend's response.
+            setMindMapExists(res.data.exists);
+
+        } catch (error) {
+            console.error("Failed to check mind map status:", error);
+            // On error, it's safest to assume it doesn't exist.
+            setMindMapExists(false);
+        }
+    };
+
+    checkMindMapStatus();
+
+}, [selectedChat, API]); // This effect re-runs whenever the `selectedChat` changes.
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -545,25 +575,28 @@ const exportChat = useCallback(() => {
 
             {/* --- 2. The AI-Powered "Generate Mind Map" Button --- */}
             {/* This button only appears when a single file is selected for viewing. */}
-            {selectedFile && (
-                <button
-                    onClick={() => { /* Make sure handleGenerateMindMap exists */ }}
-                    disabled={loading}
-                    className="flex items-center gap-3 px-5 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 disabled:bg-gray-400"
-                >
-                    {/* You can add a mind map icon here */}
-                    <span>Generate Mind Map</span>
-                </button>
-            )}
-             {/* --- 3. The "View Mind Map" Button --- */}
-             {selectedChat && (
-                <button
-                    onClick={() => navigate("/mindmap", { state: { sessionId: selectedChat } })}
-                    className="flex items-center gap-3 px-5 py-3 bg-purple-600 text-white font-semibold rounded-full shadow-lg hover:bg-purple-700"
-                >
-                    {/* You can add a mind map icon here */}
-                    <span>View Mind Map</span>
-                </button>
+            {selectedChat && ( // Only show any mind map button if a chat session is active
+                mindMapExists ? (
+                    // If mindMapExists is true, show the "View" button
+                    <button
+                        onClick={() => navigate("/mindmap", { state: { sessionId: selectedChat } })}
+                        className="flex items-center gap-3 px-5 py-3 bg-purple-600 text-white font-semibold rounded-full shadow-lg hover:bg-purple-700"
+                    >
+                        {/* You can add a "View" icon here */}
+                        <span>View Mind Map</span>
+                    </button>
+                ) : (
+                    // If mindMapExists is false, show the "Generate" button
+                    <button
+                        onClick={handleGenerateMindMap}
+                        // Disable the button if no file is selected for viewing, or if loading
+                        disabled={!selectedFile || loading}
+                        className="flex items-center gap-3 px-5 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                        {/* You can add a "Generate" icon here */}
+                        <span>Generate Mind Map</span>
+                    </button>
+                )
             )}
 
         </div>
