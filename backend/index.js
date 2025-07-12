@@ -39,7 +39,7 @@ const highlightRoutes = require("./routes/highlights"); // Assuming you might ha
 
 // --- Configuration ---
 connectDB();
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public/uploads')));
 const PORT = process.env.PORT;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
