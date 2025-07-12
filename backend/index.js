@@ -26,18 +26,35 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 // =================================================================
 
 // 1. CORS: Handles cross-origin requests from your frontend. This must come first.
-app.use(cors({
+// =================================================================
+// --- GLOBAL MIDDLEWARE (Order is very important) ---
+// =================================================================
+
+// 1. Define your CORS options once.
+const corsOptions = {
   origin: process.env.FRONTEND_URL, // e.g., 'https://documentor-frontend.onrender.com'
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow all standard methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Explicitly allow these headers
+};
 
-// 2. Body Parsers: To handle JSON and URL-encoded request bodies.
+// 2. Handle preflight requests for all routes.
+// The browser sends an OPTIONS request first for complex requests.
+// This tells the browser that your server will accept the actual request.
+app.options('*', cors(corsOptions));
+
+// 3. Apply the main CORS middleware for all subsequent requests.
+// This ensures that GET, POST, etc., requests also get the correct headers.
+app.use(cors(corsOptions));
+
+// 4. Body Parsers: To handle JSON and URL-encoded request bodies.
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// 3. Static File Serving: To serve your uploaded PDFs.
-// A request for '/uploads/file.pdf' will now serve the file from './public/uploads/file.pdf'.
+// 5. Static File Serving: To serve your uploaded PDFs.
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// ... your API routes and other code remain the same ...
 
 
 // =================================================================
