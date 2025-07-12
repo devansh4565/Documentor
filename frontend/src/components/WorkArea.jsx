@@ -520,6 +520,53 @@ const exportChat = useCallback(() => {
                 <button onClick={() => setMobileDrawer('right')}><Menu size={22}/></button>
             </div>
         </div>
+        <div className={`absolute bottom-6 z-20 flex flex-col items-end gap-3 transition-all duration-300 ${rightOpen && isDesktop ? 'right-[22rem]' : 'right-6'}`}>
+
+            {/* --- 1. The Multi-File Summarize Button --- */}
+            <AnimatePresence>
+                {selectedFilesForSummary.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                    >
+                        <button
+                            onClick={() => { /* Make sure handleMultiFileSummarize exists */ }}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-semibold rounded-full shadow-lg hover:bg-green-600"
+                        >
+                            <Lightbulb size={18} />
+                            <span>
+                                Summarize {selectedFilesForSummary.length} File{selectedFilesForSummary.length > 1 ? 's' : ''}
+                            </span>
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* --- 2. The AI-Powered "Generate Mind Map" Button --- */}
+            {/* This button only appears when a single file is selected for viewing. */}
+            {selectedFile && (
+                <button
+                    onClick={() => { /* Make sure handleGenerateMindMap exists */ }}
+                    disabled={loading}
+                    className="flex items-center gap-3 px-5 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 disabled:bg-gray-400"
+                >
+                    {/* You can add a mind map icon here */}
+                    <span>Generate Mind Map</span>
+                </button>
+            )}
+             {/* --- 3. The "View Mind Map" Button --- */}
+             {selectedChat && (
+                <button
+                    onClick={() => navigate("/mindmap", { state: { sessionId: selectedChat } })}
+                    className="flex items-center gap-3 px-5 py-3 bg-purple-600 text-white font-semibold rounded-full shadow-lg hover:bg-purple-700"
+                >
+                    {/* You can add a mind map icon here */}
+                    <span>View Mind Map</span>
+                </button>
+            )}
+
+        </div>
 
         <div className="hidden lg:block">
             <button onClick={() => setLeftOpen(p => !p)} className="absolute top-1/2 -translate-y-1/2 z-10 w-6 h-16 bg-gray-600/50 hover:bg-gray-600 text-white flex items-center justify-center rounded-r-lg" style={{left: leftOpen ? '20rem' : '0rem'}}><ChevronLeft className={`transition-transform ${!leftOpen && 'rotate-180'}`}/></button>
