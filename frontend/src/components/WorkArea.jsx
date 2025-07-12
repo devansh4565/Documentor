@@ -197,65 +197,70 @@ const onDrop = useCallback(async (acceptedFiles) => {
 }, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]);
 
 const handleSendMessage = useCallback(async () => {
-    // 1. Guard Clause: Don't send empty messages.
+    // 1. Guard Clause
     if (!newMessage.trim() || !selectedChat) return;
 
     const userMessageText = newMessage;
-    const userMessageForState = {
+    const optimisticUserMessage = {
         sender: 'user',
         text: userMessageText,
-        _id: `temp-user-${Date.now()}` // Temporary ID for optimistic UI
+        _id: `temp-user-${Date.now()}`
     };
-    
+
     // 2. Optimistic UI Updates
-    setMessages(prev => [...prev, userMessageForState]);
+    setMessages(prev => [...prev, optimisticUserMessage]);
     setNewMessage("");
-    setLoading(true);
+    setLoading(true); // This can show a generic "..." loading indicator
+    setBotTyping(""); // Clear any previous typing animation
 
     try {
         const token = await getIdToken();
         const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-        const historyForAPI = [...messages, userMessageForState].slice(-8).map(msg => ({ role: msg.sender, content: msg.text }));
+        const historyForAPI = [...messages, optimisticUserMessage].slice(-8).map(msg => ({ role: msg.sender, content: msg.text }));
 
-        // 3. Perform all backend operations
-        // A) Save user's message
-        await axios.post(
-            `${API}/api/chats/${selectedChat}/messages`,
-            { role: "user", content: userMessageText },
-            authHeader
-        );
+        // 3. Save user message and get AI response
+        await axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "user", content: userMessageText }, authHeader);
+        const aiResult = await axios.post(`${API}/api/ask`, { history: historyForAPI, fileContent: selectedFile?.content || "" }, authHeader);
+        const botResponseText = aiResult.data.response || "I'm sorry, I encountered an error.";
+        
+        // 4. Turn off the generic loading indicator
+        setLoading(false);
 
-        // B) Get AI response
-        const aiResponse = await axios.post(
-            `${API}/api/ask`,
-            { history: historyForAPI, fileContent: selectedFile?.content || "" },
-            authHeader
-        );
-        const botResponseText = aiResponse.data.response || "Sorry, I couldn't get a response.";
-
-        // C) Save bot's message
-        const savedBotMessageResult = await axios.post(
-            `${API}/api/chats/${selectedChat}/messages`,
-            { role: "assistant", content: botResponseText },
-            authHeader
-        );
-
-        // ✅ THE CRITICAL FIX:
-        // Get the complete bot message object that was just saved to the database.
-        const finalBotMessage = savedBotMessageResult.data;
-
-        // Add this final, complete object to our messages state.
-        setMessages(prev => [...prev, finalBotMessage]);
+        // 5. Animate the bot's response with the "typing" effect
+        let i = 0;
+        const typingInterval = setInterval(() => {
+            if (i < botResponseText.length) {
+                setBotTyping(botResponseText.slice(0, i + 1));
+                i++;
+            } else {
+                clearInterval(typingInterval);
+                
+                // --- THE CRITICAL FIX ---
+                // After the animation is complete, save the final bot message to the DB
+                // and then add the *real*, complete message object to the state.
+                axios.post(`${API}/api/chats/${selectedChat}/messages`, { role: "assistant", content: botResponseText }, authHeader)
+                    .then(res => {
+                        // Add the final message from the DB to the messages array
+                        setMessages(prev => [...prev, res.data]);
+                        // Clear the typing animation state
+                        setBotTyping("");
+                    })
+                    .catch(dbError => {
+                        console.error("Failed to save bot message:", dbError);
+                        // Still add the message to the UI even if DB save fails
+                        const fallbackBotMessage = { sender: 'assistant', text: botResponseText, _id: `fallback-bot-${Date.now()}`};
+                        setMessages(prev => [...prev, fallbackBotMessage]);
+                        setBotTyping("");
+                    });
+                // -------------------------
+            }
+        }, 30); // Adjust typing speed (milliseconds)
 
     } catch (err) {
         console.error("Error in handleSendMessage:", err);
-        setMessages(prev => [...prev, {
-            sender: 'assistant',
-            text: `⚠️ An error occurred. Please try again.`,
-            _id: `err-${Date.now()}`
-        }]);
-    } finally {
         setLoading(false);
+        setBotTyping("");
+        setMessages(prev => [...prev, { sender: 'assistant', text: '⚠️ Error getting response.', _id: `err-${Date.now()}` }]);
     }
 }, [newMessage, selectedChat, messages, selectedFile, API, getIdToken]);
 
