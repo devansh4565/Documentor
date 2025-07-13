@@ -1,23 +1,16 @@
 const express = require("express");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
-const cloudinary = require('cloudinary').v2; // Import cloudinary v2
-
-// Import your Mongoose models
+const cloudinary = require('cloudinary').v2;
 const File = require("../models/File");
 const ChatSession = require("../models/ChatSession");
 const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 
 const router = express.Router();
 
-// --- THE FIX: Use Memory Storage ---
-// This tells multer to hold the uploaded file in memory as a buffer,
-// instead of saving it to a temporary file on disk.
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-// ------------------------------------
 
-// POST /api/upload
 router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -26,47 +19,46 @@ router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) =>
     const userId = req.user.uid;
     let sessionId = req.body.sessionId;
 
-    // --- NEW, SIMPLIFIED UPLOAD & PARSING LOGIC ---
+    // Convert file buffer to a Data URI for Cloudinary
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
 
-    // 1. Upload the file buffer from memory directly to Cloudinary
-        const b64 = Buffer.from(req.file.buffer).toString("base64");
-        let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-        
-        const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
-            resource_type: 'auto',
-            folder: 'documentor_uploads',
-            public_id: `${userId}-${Date.now()}` // Simplified name
-        });
-    console.log("✅ File successfully uploaded to Cloudinary:", cloudinaryResponse.secure_url);
+    // --- THIS IS THE FIX ---
+    const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
+        resource_type: 'auto',
+        folder: 'documentor_uploads',
+        // Make the upload public. This is often the default, but being explicit is safer.
+        type: 'upload', 
+        public_id: `${userId}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-_]/g, '')}`
+    });
+    // -------------------------
 
-    // 2. Parse the PDF text directly from the buffer we already have in memory.
-    // No need to re-download the file!
+    console.log("✅ File uploaded to Cloudinary:", cloudinaryResponse.secure_url);
+
     const pdfData = await pdfParse(req.file.buffer);
     const fullText = pdfData.text;
 
-    // 3. Create a new session if needed
     if (!sessionId || sessionId === "undefined" || sessionId === "null") {
         const newSession = await ChatSession.create({ name: req.file.originalname, user: userId });
         sessionId = newSession._id.toString();
     }
 
-    // 4. Create the file record in our database
     const newFileInDB = await File.create({
       name: req.file.originalname,
-      url: cloudinaryResponse.secure_url, // Use the secure URL from Cloudinary's response
+      url: cloudinaryResponse.secure_url,
       sessionId: sessionId,
       user: userId,
       content: fullText.trim(),
       size: `${(req.file.size / 1024).toFixed(2)} KB`,
     });
 
-        res.status(201).json(/* newFileInDB */);
+    // ✅ FIX: Ensure you are sending the created DB record back to the frontend.
+    res.status(201).json(newFileInDB); 
 
-    } catch (err) {
-        // We need to see the error from the Render logs.
-        console.error("❌ UPLOAD ROUTE CRASH:", err);
-        res.status(500).json({ error: "Server error during file processing." });
-    }
+  } catch (err) {
+    console.error("❌ UPLOAD ROUTE CRASH:", err);
+    res.status(500).json({ error: "Server error during file processing." });
+  }
 });
 
 module.exports = router;
