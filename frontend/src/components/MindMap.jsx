@@ -66,61 +66,85 @@ const MindMap = () => {
 
     const location = useLocation();
     const navigate = useNavigate();
-    const sessionId = location.state?.sessionId;
+    const { fileId } = location.state || {};
     const PRESET_COLORS = ["#EF4444", "#F97316", "#84CC16", "#10B981", "#0EA5E9", "#6366F1", "#A855F7", "#EC4899", "#78716C"];
     useEffect(() => {
-        const loadAndLayoutMap = async () => {
-            if (!sessionId) { setLoading(false); return; }
-            setLoading(true);
+    const loadAndLayoutMap = async () => {
+        // Use the new fileId state
+        if (!fileId) {
+            setLoading(false);
+            console.log("No fileId provided, cannot load mind map.");
+            return;
+        }
+        setLoading(true);
 
-            try {
-                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/mindmap/${sessionId}`, {
-                    credentials: "include"
-                });
-                const aiData = await res.json();
-                if (!aiData) { setLoading(false); return; }
+        try {
+            // Call the new, file-specific endpoint
+            const res = await fetch(`${API}/api/mindmap/file/${fileId}`);
+            
+            if (!res.ok) {
+                throw new Error(`Failed to fetch mind map: ${res.statusText}`);
+            }
 
-                const sanitizedRoot = sanitizeTree(aiData);
-                if (!sanitizedRoot) throw new Error("Invalid AI data structure.");
-                
-                // Dagre layout engine setup
-                const dagreGraph = new dagre.graphlib.Graph();
-                dagreGraph.setGraph({ rankdir: 'LR', ranksep: 80, nodesep: 25 });
-                dagreGraph.setDefaultEdgeLabel(() => ({}));
+            const aiData = await res.json();
+            if (!aiData) {
+                console.log("No mind map data found for this file.");
+                setLoading(false);
+                return;
+            }
 
-                const tempNodes = [];
-                const tempLines = [];
-                const NODE_WIDTH = 200, NODE_HEIGHT = 50;
+            // --- The rest of your layout logic remains the same ---
+            const sanitizedRoot = sanitizeTree(aiData);
+            if (!sanitizedRoot) throw new Error("Invalid AI data structure.");
+            
+            const dagreGraph = new dagre.graphlib.Graph();
+            dagreGraph.setGraph({ rankdir: 'LR', ranksep: 80, nodesep: 25 });
+            dagreGraph.setDefaultEdgeLabel(() => ({}));
+            
+            // ... (your existing buildGraph and dagre.layout logic) ...
 
-                function buildGraph(dataNode, parentId = null) {
-                    const myId = uuidv4();
-                    dagreGraph.setNode(myId, { label: dataNode.text, width: NODE_WIDTH, height: NODE_HEIGHT });
-                    tempNodes.push({ id: myId, text: dataNode.text });
+            // --- It's good practice to clear old state before setting new ---
+            setNodes([]);
+            setLines([]);
 
-                    if (parentId) {
-                        dagreGraph.setEdge(parentId, myId);
-                        tempLines.push({ from: parentId, to: myId });
-                    }
-                    if (dataNode.children) {
-                        dataNode.children.forEach(child => buildGraph(child, myId));
-                    }
+            const tempNodes = [];
+            const tempLines = [];
+            const NODE_WIDTH = 200, NODE_HEIGHT = 50;
+
+            function buildGraph(dataNode, parentId = null) {
+                const myId = uuidv4();
+                dagreGraph.setNode(myId, { label: dataNode.text, width: NODE_WIDTH, height: NODE_HEIGHT });
+                tempNodes.push({ id: myId, text: dataNode.text });
+
+                if (parentId) {
+                    dagreGraph.setEdge(parentId, myId);
+                    tempLines.push({ from: parentId, to: myId });
                 }
-                
-                buildGraph(sanitizedRoot);
-                dagre.layout(dagreGraph);
+                if (dataNode.children) {
+                    dataNode.children.forEach(child => buildGraph(child, myId));
+                }
+            }
+            
+            buildGraph(sanitizedRoot);
+            dagre.layout(dagreGraph);
 
-                setNodes(tempNodes.map(node => {
-                    const dagreNode = dagreGraph.node(node.id);
-                    return { ...node, x: dagreNode.x, y: dagreNode.y, width: dagreNode.width, height: dagreNode.height };
-                }));
-                setLines(tempLines);
-                
-            } catch (err) { console.error("Failed to layout mind map:", err); } 
-            finally { setLoading(false); }
-        };
+            setNodes(tempNodes.map(node => {
+                const dagreNode = dagreGraph.node(node.id);
+                return { ...node, x: dagreNode.x, y: dagreNode.y, width: dagreNode.width, height: dagreNode.height };
+            }));
+            setLines(tempLines);
+            
+        } catch (err) { 
+            console.error("Failed to load or layout mind map:", err); 
+        } finally { 
+            setLoading(false); 
+        }
+    };
 
-        loadAndLayoutMap();
-    }, [sessionId]);
+    loadAndLayoutMap();
+
+// Update the dependency array to use fileId
+}, [fileId, API]);
     const transformStateRef = useRef({ positionX: 0, positionY: 0, scale: 1 });
 
 
@@ -235,8 +259,18 @@ const handleClear = () => {
                                     const pathData = `M ${fromNode.x} ${fromNode.y} L ${toNode.x} ${toNode.y}`;
                                     return <path key={`${line.from}-${line.to}`} d={pathData} stroke="#a1a1aa" strokeWidth="2" fill="none" />;
                                 })}
-                                {drawings.map(d => (<path key={d.id} d={`M ${d.points.map(p => `${p.x} ${p.y}`).join(" L ")}`} fill="none" stroke="#6366f1" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>))}
-                                {currentDrawing && (<path d={`M ${currentDrawing.points.map(p => `${p.x} ${p.y}`).join(" L ")}`} fill="none" stroke="#a5b4fc" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>)}
+                            {drawings.map(d => (
+                                <path
+                                    key={d.id}
+                                    d={`M ${d.points.map(p => `${p.x} ${p.y}`).join(" L ")}`}
+                                    fill="none"
+                                    stroke={d.color}
+                                    strokeWidth={d.strokeWidth}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            ))}                                
+                            {currentDrawing && (<path d={`M ${currentDrawing.points.map(p => `${p.x} ${p.y}`).join(" L ")}`} fill="none" stroke="#a5b4fc" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>)}
                             </svg>
                         {nodes.map(node => <Node key={node.id} node={node} />)}
                     </div>
