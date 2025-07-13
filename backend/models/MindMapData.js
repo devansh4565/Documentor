@@ -2,25 +2,15 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const mindMapDataSchema = new Schema({
-    // The mind map's hierarchical data structure
-    data: {
-        type: Object,
-        required: true,
-    },
-
-    // --- THIS IS THE FIX ---
-    // Change `sessionId` to `fileId` and make it a proper reference.
+    data: { type: Object, required: true },
+    // This MUST be fileId to match your routes
     fileId: {
         type: Schema.Types.ObjectId,
-        ref: 'File', // This creates a formal link to your File model
+        ref: 'File',
         required: true,
-        unique: true, // A file can only have one mind map
-        index: true,  // Speeds up lookups by fileId
+        unique: true,
+        index: true,
     },
-    // -------------------------
-
-}, {
-    timestamps: true // Automatically adds createdAt and updatedAt
-});
+}, { timestamps: true });
 
 module.exports = mongoose.models.MindMapData || mongoose.model("MindMapData", mindMapDataSchema);
