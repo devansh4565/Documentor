@@ -65,32 +65,24 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   // In WorkArea.jsx, with your other useEffects
 
 useEffect(() => {
-    // This async function will check the status from the backend
     const checkMindMapStatus = async () => {
-        // If no chat is selected, we know a mind map can't exist for it.
-        // Reset the state and exit.
-        if (!selectedChat) {
+        // If no file is selected, reset the state.
+        if (!selectedFile) {
             setMindMapExists(false);
             return;
         }
-
         try {
-            // Call the new unprotected endpoint. No token is needed for this version.
-            const res = await axios.get(`${API}/api/mindmap/exists/${selectedChat}`);
-            
-            // Update our state with the boolean value from the backend's response.
+            // Call the new file-specific existence endpoint
+            const res = await axios.get(`${API}/api/mindmap/exists/file/${selectedFile._id}`);
             setMindMapExists(res.data.exists);
-
         } catch (error) {
             console.error("Failed to check mind map status:", error);
-            // On error, it's safest to assume it doesn't exist.
             setMindMapExists(false);
         }
     };
 
     checkMindMapStatus();
-
-}, [selectedChat, API]); // This effect re-runs whenever the `selectedChat` changes.
+}, [selectedFile, API]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -301,50 +293,35 @@ const handleSendMessage = useCallback(async () => {
 // In frontend/src/components/WorkArea.jsx
 // In WorkArea.jsx, inside the component, with your other useCallback hooks
 
+// In WorkArea.jsx
 const handleGenerateMindMap = useCallback(async () => {
-    // 1. Guard Clauses: Ensure we have everything needed to proceed.
     if (!selectedFile?.content) {
-        alert("Please select a file with content to generate a mind map.");
+        alert("Please select a file to generate a mind map.");
         return;
     }
-    if (!selectedChat) {
-        alert("Please select or create a chat session first.");
-        return;
-    }
-
     setLoading(true);
     try {
-        // 2. Call the backend endpoint to get the AI-generated mind map data.
-        // This endpoint is unprotected for now, so no token is needed.
-        const res = await axios.post(
-            `${API}/api/generate-mindmap`,
-            { documentText: selectedFile.content }
-        );
-
+        // Generate the map data from the AI (this part is the same)
+        const res = await axios.post(`${API}/api/generate-mindmap`, { documentText: selectedFile.content });
         const mindMapData = res.data;
 
-        // 3. Save the newly generated map data to the database.
-        // We associate it with the current chat session.
+        // ✅ FIX: Save the map against the fileId
         await axios.post(
-            `${API}/api/mindmap/${selectedChat}`,
+            `${API}/api/mindmap/file/${selectedFile._id}`,
             { data: mindMapData }
         );
 
-        // 4. Update the UI state to reflect that a map now exists.
-        // This will cause the "View Mind Map" button to appear instantly.
-        setMindMapExists(true);
+        setMindMapExists(true); // Update UI state instantly
         
-        // 5. Navigate the user to the mind map page.
-        navigate('/mindmap', { state: { sessionId: selectedChat } });
+        // Navigate to the mind map page, passing the fileId
+        navigate('/mindmap', { state: { fileId: selectedFile._id } });
 
     } catch (err) {
-        console.error("Error in mind map generation flow:", err);
-        alert(`Error generating mind map: ${err.response?.data?.error || err.message}`);
+        // ... error handling ...
     } finally {
         setLoading(false);
     }
-    // List all external variables the function depends on.
-}, [selectedFile, selectedChat, API, navigate, setLoading, setMindMapExists]);
+}, [selectedFile, API, navigate, setLoading]); // Update dependencies
 
 const exportChat = useCallback(() => {
     // 1. Guard Clause: Don't do anything if there are no messages to export.
@@ -625,7 +602,7 @@ const exportChat = useCallback(() => {
                 mindMapExists ? (
                     // If mindMapExists is true, show the "View" button
                     <button
-                        onClick={() => navigate("/mindmap", { state: { sessionId: selectedChat } })}
+                        onClick={() => navigate("/mindmap", { state: { fileId: selectedFile._id } })}
                         className="flex items-center gap-3 px-5 py-3 bg-purple-600 text-white font-semibold rounded-full shadow-lg hover:bg-purple-700"
                     >
                         {/* You can add a "View" icon here */}
@@ -636,7 +613,7 @@ const exportChat = useCallback(() => {
                     <button
                         onClick={handleGenerateMindMap}
                         // Disable the button if no file is selected for viewing, or if loading
-                        disabled={!selectedFile || loading}
+                        disabled={loading}
                         className="flex items-center gap-3 px-5 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                         {/* You can add a "Generate" icon here */}

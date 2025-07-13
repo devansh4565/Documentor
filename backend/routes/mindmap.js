@@ -1,76 +1,44 @@
 const express = require("express");
 const router = express.Router();
 const MindMapData = require("../models/MindMapData");
-// We don't need ChatSession or the middleware for an unprotected setup.
+// We no longer need verifyFirebaseToken if these routes are unprotected.
 
-// ❌ WARNING: These routes are unprotected. Anyone with a valid sessionId can access them.
-// To re-enable security later:
-// 1. Uncomment the verifyFirebaseToken import.
-// 2. Uncomment `router.use(verifyFirebaseToken);`
-// 3. Uncomment the security check blocks inside each route.
-// const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
-// router.use(verifyFirebaseToken);
-
-
-// --- NEW ROUTE ---
-// GET /api/mindmap/exists/:sessionId
-// Checks if a mind map exists for a given session.
-router.get("/exists/:sessionId", async (req, res) => {
+// --- NEW ROUTE for file-specific check ---
+// GET /api/mindmap/exists/file/:fileId
+router.get("/exists/file/:fileId", async (req, res) => {
     try {
-        const { sessionId } = req.params;
-        
-        // --- Security Check (Currently Disabled) ---
-        // const userId = req.user.uid;
-        // const session = await ChatSession.findOne({ _id: sessionId, user: userId });
-        // if (!session) return res.status(403).json({ message: "Access denied." });
-        
-        const count = await MindMapData.countDocuments({ sessionId: sessionId });
+        const { fileId } = req.params;
+        const count = await MindMapData.countDocuments({ fileId: fileId });
         res.status(200).json({ exists: count > 0 });
-
     } catch (error) {
-        console.error("Error checking mind map existence:", error);
         res.status(500).json({ error: "Server error." });
     }
 });
 
-
-// POST /api/mindmap/:sessionId - Save or update mind map data
-router.post("/:sessionId", async (req, res) => {
+// --- NEW ROUTE for saving a file-specific map ---
+// POST /api/mindmap/file/:fileId
+router.post("/file/:fileId", async (req, res) => {
     try {
-        const { sessionId } = req.params;
-
-        // --- Security Check (Currently Disabled) ---
-        // const userId = req.user.uid;
-        // const session = await ChatSession.findOne({ _id: sessionId, user: userId });
-        // if (!session) return res.status(403).json({ message: "Access denied." });
-
+        const { fileId } = req.params;
         await MindMapData.findOneAndUpdate(
-            { sessionId: sessionId },
-            { data: req.body.data },
+            { fileId: fileId },
+            { data: req.body.data, fileId: fileId },
             { upsert: true, new: true }
         );
-        res.status(200).json({ success: true, message: "Mind map saved successfully." });
+        res.status(200).json({ success: true });
     } catch (err) {
-        console.error("Error saving mind map:", err);
         res.status(500).json({ error: "Failed to save mind map." });
     }
 });
 
-
-// GET /api/mindmap/:sessionId - Get mind map data
-router.get("/:sessionId", async (req, res) => {
+// --- NEW ROUTE for getting a file-specific map ---
+// GET /api/mindmap/file/:fileId
+router.get("/file/:fileId", async (req, res) => {
     try {
-        const { sessionId } = req.params;
-        
-        // --- Security Check (Currently Disabled) ---
-        // const userId = req.user.uid;
-        // const session = await ChatSession.findOne({ _id: sessionId, user: userId });
-        // if (!session) return res.status(403).json({ message: "Access denied." });
-
-        const map = await MindMapData.findOne({ sessionId: sessionId });
+        const { fileId } = req.params;
+        const map = await MindMapData.findOne({ fileId: fileId });
         res.status(200).json(map ? map.data : null);
     } catch (err) {
-        console.error("Error fetching mind map:", err);
         res.status(500).json({ error: "Failed to fetch mind map." });
     }
 });
