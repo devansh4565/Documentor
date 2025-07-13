@@ -2,6 +2,8 @@ const express = require("express");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
 const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier'); // We need this small helper library
+
 const File = require("../models/File");
 const ChatSession = require("../models/ChatSession");
 const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
@@ -11,6 +13,30 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+// This is a helper function to wrap the Cloudinary stream upload in a Promise
+const streamUpload = (req) => {
+    return new Promise((resolve, reject) => {
+        let stream = cloudinary.uploader.upload_stream(
+            {
+                folder: "documentor_uploads",
+                // Generate a unique public_id (filename)
+                public_id: `${req.user.uid}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`,
+                resource_type: "auto"
+            },
+            (error, result) => {
+                if (result) {
+                    resolve(result);
+                } else {
+                    reject(error);
+                }
+            }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+    });
+};
+
+
+// POST /api/upload
 router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -19,45 +45,32 @@ router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) =>
     const userId = req.user.uid;
     let sessionId = req.body.sessionId;
 
-    // Convert file buffer to a Data URI for Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString("base64");
-    let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-
-    // --- THIS IS THE FIX ---
-    const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
-        resource_type: 'auto',
-        folder: 'documentor_uploads',
-        // Make the upload public. This is often the default, but being explicit is safer.
-        type: 'upload', 
-        public_id: `${userId}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-_]/g, '')}`
-    });
-    // -------------------------
-
-    console.log("✅ File uploaded to Cloudinary:", cloudinaryResponse.secure_url);
+    // --- NEW UPLOAD LOGIC ---
+    const cloudinaryResult = await streamUpload(req);
+    console.log("✅ File successfully uploaded via stream:", cloudinaryResult.secure_url);
 
     const pdfData = await pdfParse(req.file.buffer);
     const fullText = pdfData.text;
 
-    if (!sessionId || sessionId === "undefined" || sessionId === "null") {
+    if (!sessionId) {
         const newSession = await ChatSession.create({ name: req.file.originalname, user: userId });
         sessionId = newSession._id.toString();
     }
 
     const newFileInDB = await File.create({
       name: req.file.originalname,
-      url: cloudinaryResponse.secure_url,
+      url: cloudinaryResult.secure_url,
       sessionId: sessionId,
       user: userId,
       content: fullText.trim(),
       size: `${(req.file.size / 1024).toFixed(2)} KB`,
     });
 
-    // ✅ FIX: Ensure you are sending the created DB record back to the frontend.
-    res.status(201).json(newFileInDB); 
+    res.status(201).json(newFileInDB);
 
   } catch (err) {
-    console.error("❌ UPLOAD ROUTE CRASH:", err);
-    res.status(500).json({ error: "Server error during file processing." });
+    console.error("❌ UPLOAD ROUTE FAILED:", err);
+    res.status(500).json({ error: "Server error during file upload." });
   }
 });
 
