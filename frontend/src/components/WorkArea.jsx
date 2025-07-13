@@ -43,7 +43,6 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [botTyping, setBotTyping] = useState("");
-  const pdfWrapperRef = useRef(null);
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [selectedFilesForSummary, setSelectedFilesForSummary] = useState([]);
@@ -54,6 +53,14 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [mindMapExists, setMindMapExists] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const pdfWrapperRef = useCallback(node => {
+    // This function runs when the ref is attached to the div.
+    if (node !== null) {
+        // We get the width and update our state.
+        setContainerWidth(node.getBoundingClientRect().width);
+    }
+  }, []);
 
 
   // --- EFFECTS ---
@@ -506,25 +513,20 @@ const exportChat = useCallback(() => {
               <div className="flex flex-col h-full p-4">
                 <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
                 <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
-                  {selectedFile?.url && (
-                    <Document
-                      // ✅ THE FIX: The `selectedFile.url` from the database now contains
-                      // the full "https://res.cloudinary.com/..." URL.
-                      // We pass this URL directly to the component.
-                      file={selectedFile.url}
-                      
-                      onLoadSuccess={onDocumentLoadSuccess}
-                      key={selectedFile._id}
-                      // Add an error handler for better debugging
-                      onLoadError={(error) => console.error('PDF Load Error:', error.message)}
-                    >
-                      <Page
-                        pageNumber={pageNumber}
-                        // Use a state variable for width for more stability
-                        width={containerWidth > 0 ? containerWidth - 40 : undefined}
-                        onRenderError={(error) => console.error('PDF Render Error:', error.message)}
-                      />
-                    </Document>
+                          
+                          {/* ✅ RENDER ONLY WHEN WIDTH IS KNOWN */}
+                          {selectedFile?.url && containerWidth > 0 && (
+                            <Document
+                              file={selectedFile.url} // Use the full Cloudinary URL
+                              onLoadSuccess={onDocumentLoadSuccess}
+                              key={selectedFile._id}
+                            >
+                              <Page
+                                pageNumber={pageNumber}
+                                // ✅ USE THE STATE VARIABLE FOR WIDTH
+                                width={containerWidth - 40} // Subtract padding
+                              />
+                            </Document>
                   )}
                 </div>
                 {numPages && (
