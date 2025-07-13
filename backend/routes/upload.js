@@ -19,9 +19,10 @@ const streamUpload = (req) => {
         let stream = cloudinary.uploader.upload_stream(
             {
                 folder: "documentor_uploads",
-                // Generate a unique public_id (filename)
-                public_id: `${req.user.uid}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`,
-                resource_type: "auto"
+                // ✅ THIS IS THE CRITICAL FIX
+                // Force the resource type to 'raw' for non-image files like PDFs.
+                // This prevents Cloudinary from trying to process it as an image.
+                resource_type: "raw", 
             },
             (error, result) => {
                 if (result) {
@@ -31,6 +32,7 @@ const streamUpload = (req) => {
                 }
             }
         );
+        // The rest of the stream logic is correct
         streamifier.createReadStream(req.file.buffer).pipe(stream);
     });
 };
