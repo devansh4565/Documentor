@@ -54,19 +54,31 @@ exports.addMessage = async (req, res) => {
     const { sessionId } = req.params;
     const { role, content } = req.body;
     
+    // ✅ STEP 1: SECURITY CHECK
+    // First, verify that the logged-in user actually owns this chat session.
+    const session = await ChatSession.findOne({ _id: sessionId, user: req.user.uid });
+    if (!session) {
+        return res.status(403).json({ error: "Forbidden: You do not have permission to add messages to this chat." });
+    }
+    // --- End of Security Check ---
+    
     if (!role || !content) {
       return res.status(400).json({ error: "Role and content are required." });
     }
 
+    // If the check passes, proceed to create the message
     const message = await ChatMessage.create({
       sessionId: sessionId,
       role: role,
       content: content,
     });
     
-    await ChatSession.findByIdAndUpdate(sessionId, { updatedAt: new Date() });
+    // You can also update the session's updatedAt timestamp
+    session.updatedAt = new Date();
+    await session.save();
     
     res.status(201).json(message);
+
   } catch (err) {
     console.error("❌ Failed to add message in controller:", err);
     res.status(500).json({ error: "Failed to add message to the database." });
@@ -76,13 +88,24 @@ exports.addMessage = async (req, res) => {
 // Get all messages for a specific session
 exports.getMessages = async (req, res) => {
   try {
-    const messages = await ChatMessage.find({ sessionId: req.params.sessionId }).sort({ timestamp: 1 });
+    const { sessionId } = req.params;
+
+    // ✅ STEP 1: SECURITY CHECK
+    // Verify that the logged-in user owns the chat session they are requesting messages for.
+    const session = await ChatSession.findOne({ _id: sessionId, user: req.user.uid });
+    if (!session) {
+        return res.status(403).json({ error: "Forbidden: You do not have permission to view these messages." });
+    }
+    // --- End of Security Check ---
+
+    // If the check passes, proceed to get the messages
+    const messages = await ChatMessage.find({ sessionId: sessionId }).sort({ timestamp: 1 });
     res.json(messages);
   } catch (err) {
+    console.error("❌ Failed to get messages in controller:", err);
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 };
-
 // Rename a session
 exports.renameSession = async (req, res) => {
   try {
