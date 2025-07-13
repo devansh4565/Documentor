@@ -170,35 +170,28 @@ const onDrop = useCallback(async (acceptedFiles) => {
 
     const file = acceptedFiles[0];
     setIsUploading(true);
-    setUploadProgress(0); // Reset progress on new upload
+    setUploadProgress(0); // Reset progress
 
     try {
         const token = await getIdToken();
-        if (!token) throw new Error("You must be logged in to upload files.");
+        if (!token) throw new Error("Authentication failed");
 
         const formData = new FormData();
         formData.append("file", file);
         if (selectedChat) formData.append("sessionId", selectedChat);
 
-        // --- Use axios for upload with progress tracking ---
+        // Use axios for progress tracking
         const res = await axios.post(`${API}/api/upload`, formData, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'multipart/form-data',
-            },
-            // This function is called by axios during the upload
+            headers: { Authorization: `Bearer ${token}` },
             onUploadProgress: (progressEvent) => {
                 const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
                 setUploadProgress(percentCompleted);
             },
         });
-        // --- End of axios call ---
-
-        // Once upload is 100%, we can indicate OCR is happening
-        // (The backend takes over from here)
         
         const newFileFromDB = res.data;
 
+        // If a new session was created on the backend, update our sessions list
         if (!selectedChat) {
             const newSessionId = newFileFromDB.sessionId;
             const newSession = { _id: newSessionId, name: file.name, user: firebaseUser.uid, createdAt: new Date().toISOString() };
@@ -206,15 +199,20 @@ const onDrop = useCallback(async (acceptedFiles) => {
             setSelectedChat(newSessionId);
         }
         
+        // --- THIS IS THE FIX ---
+        // ✅ Add the newly uploaded file to the list of files for this session.
         setSessionFiles(prevFiles => [...prevFiles, newFileFromDB]);
+
+        // ✅ Automatically select the new file to be displayed in the viewer.
         setSelectedFile(newFileFromDB);
+        // ----------------------
 
     } catch (err) {
         console.error("onDrop handler failed:", err);
         alert(`Upload Error: ${err.message || 'An unknown error occurred'}`);
     } finally {
         setIsUploading(false);
-        setUploadProgress(0); // Reset progress after completion or error
+        setUploadProgress(0);
     }
 }, [selectedChat, API, getIdToken, firebaseUser, setInitialSessions]);
 
