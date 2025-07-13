@@ -509,7 +509,18 @@ const exportChat = useCallback(() => {
                 <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
                 <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
                   {selectedFile?.url && (
-                    <Document file={`${API}${selectedFile.url}`} onLoadSuccess={onDocumentLoadSuccess} key={selectedFile._id}>
+                    <Document
+                      // ✅ THE FIX: Pass the file's raw data directly.
+                      // We can pass the URL as the primary source, and provide the loaded
+                      // content as a fallback or primary data source if available.
+                      // The 'data' property is used for in-memory files.
+                      file={{
+                        url: `${API}${selectedFile.url}`, // Keep URL for reference and potential direct load
+                        data: selectedFile.content,      // Pass the text content directly
+                      }}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      key={selectedFile._id}
+>
                       <Page pageNumber={pageNumber} width={pdfWrapperRef.current?.clientWidth ? pdfWrapperRef.current.clientWidth - 20 : undefined} />
                     </Document>
                   )}
