@@ -299,6 +299,52 @@ const handleSendMessage = useCallback(async () => {
   }, []);
 
 // In frontend/src/components/WorkArea.jsx
+// In WorkArea.jsx, inside the component, with your other useCallback hooks
+
+const handleGenerateMindMap = useCallback(async () => {
+    // 1. Guard Clauses: Ensure we have everything needed to proceed.
+    if (!selectedFile?.content) {
+        alert("Please select a file with content to generate a mind map.");
+        return;
+    }
+    if (!selectedChat) {
+        alert("Please select or create a chat session first.");
+        return;
+    }
+
+    setLoading(true);
+    try {
+        // 2. Call the backend endpoint to get the AI-generated mind map data.
+        // This endpoint is unprotected for now, so no token is needed.
+        const res = await axios.post(
+            `${API}/api/generate-mindmap`,
+            { documentText: selectedFile.content }
+        );
+
+        const mindMapData = res.data;
+
+        // 3. Save the newly generated map data to the database.
+        // We associate it with the current chat session.
+        await axios.post(
+            `${API}/api/mindmap/${selectedChat}`,
+            { data: mindMapData }
+        );
+
+        // 4. Update the UI state to reflect that a map now exists.
+        // This will cause the "View Mind Map" button to appear instantly.
+        setMindMapExists(true);
+        
+        // 5. Navigate the user to the mind map page.
+        navigate('/mindmap', { state: { sessionId: selectedChat } });
+
+    } catch (err) {
+        console.error("Error in mind map generation flow:", err);
+        alert(`Error generating mind map: ${err.response?.data?.error || err.message}`);
+    } finally {
+        setLoading(false);
+    }
+    // List all external variables the function depends on.
+}, [selectedFile, selectedChat, API, navigate, setLoading, setMindMapExists]);
 
 const exportChat = useCallback(() => {
     // 1. Guard Clause: Don't do anything if there are no messages to export.
