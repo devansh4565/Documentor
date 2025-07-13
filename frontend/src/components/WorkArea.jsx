@@ -510,18 +510,22 @@ const exportChat = useCallback(() => {
                 <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
                   {selectedFile?.url && (
                     <Document
-                      // ✅ THE FIX: Pass the file's raw data directly.
-                      // We can pass the URL as the primary source, and provide the loaded
-                      // content as a fallback or primary data source if available.
-                      // The 'data' property is used for in-memory files.
-                      file={{
-                        url: `${API}${selectedFile.url}`, // Keep URL for reference and potential direct load
-                        data: selectedFile.content,      // Pass the text content directly
-                      }}
+                      // ✅ THE FIX: The `selectedFile.url` from the database now contains
+                      // the full "https://res.cloudinary.com/..." URL.
+                      // We pass this URL directly to the component.
+                      file={selectedFile.url}
+                      
                       onLoadSuccess={onDocumentLoadSuccess}
                       key={selectedFile._id}
->
-                      <Page pageNumber={pageNumber} width={pdfWrapperRef.current?.clientWidth ? pdfWrapperRef.current.clientWidth - 20 : undefined} />
+                      // Add an error handler for better debugging
+                      onLoadError={(error) => console.error('PDF Load Error:', error.message)}
+                    >
+                      <Page
+                        pageNumber={pageNumber}
+                        // Use a state variable for width for more stability
+                        width={containerWidth > 0 ? containerWidth - 40 : undefined}
+                        onRenderError={(error) => console.error('PDF Render Error:', error.message)}
+                      />
                     </Document>
                   )}
                 </div>

@@ -1,35 +1,41 @@
 const express = require("express");
 const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
 const pdfParse = require("pdf-parse");
+
+// Import your Mongoose models
 const File = require("../models/File");
 const ChatSession = require("../models/ChatSession");
+
+// Import your authentication middleware
 const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
+
+// ✅ STEP 1: Import the Cloudinary storage configuration
+const { storage } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// --- Multer Configuration ---
-const uploadDir = "uploads"; // This is a temporary storage location
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
-// Multer saves the file with a temporary, unique name to prevent conflicts
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
-const upload = multer({ storage });
+// ✅ STEP 2: Tell multer to use our Cloudinary storage engine
+const upload = multer({ storage: storage });
 
 
+// --- THE NEW CLOUDINARY UPLOAD ROUTE ---
 // POST /api/upload
-router.post("/", upload.single("file"), verifyFirebaseToken, async (req, res) => {
+// The middleware order is critical: verify the token first, THEN let multer upload.
+router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    if (!req.user?.uid) return res.status(401).json({ error: "Authentication failed."});
-
-    const userId = req.user.uid;
+    // 1. Validate the upload
+    if (!req.file) {
+      return res.status(400).json({ error: "No file or file upload failed." });
+    }
+    // `req.user` is attached by `verifyFirebaseToken` which ran before multer
+    const userId = req.user.uid; 
     let sessionId = req.body.sessionId;
 
+    // The file has already been uploaded to Cloudinary by the middleware!
+    // The URL is in `req.file.path`. The size is in `req.file.size`.
+    console.log("✅ File successfully uploaded to Cloudinary:", req.file.path);
+
+    // 2. Create a new session if one wasn't provided
     if (!sessionId || sessionId === "undefined" || sessionId === "null") {
       const newSession = await ChatSession.create({
         name: req.file.originalname,
@@ -37,45 +43,31 @@ router.post("/", upload.single("file"), verifyFirebaseToken, async (req, res) =>
       });
       sessionId = newSession._id.toString();
     }
-
-    // --- THIS IS THE CORRECTED LOGIC ---
-    const tempPdfPath = req.file.path; // The path to the temp file, e.g., 'uploads/175...-report.pdf'
-
-    // 1. Sanitize the original filename to make it URL-safe
-    const safeOriginalName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-
-    // 2. Create the new, permanent, user-specific filename
-    const finalFilename = `${userId}-${safeOriginalName}`;
-
-    // 3. Define the final destination path for the file
-    const publicUploadsDir = path.join(__dirname, "../public/uploads");
-    fs.mkdirSync(publicUploadsDir, { recursive: true });
-    const finalPath = path.join(publicUploadsDir, finalFilename);
-
-    // 4. Move the temporary file to the public directory WITH the new name
-    fs.renameSync(tempPdfPath, finalPath);
-    // ------------------------------------
-
-    // 5. Process the PDF text from the final location
-    const dataBuffer = fs.readFileSync(finalPath);
-    const pdfData = await pdfParse(dataBuffer);
+    
+    // 3. To get the text content, we must fetch the PDF from Cloudinary's URL
+    const response = await fetch(req.file.path);
+    if (!response.ok) {
+        throw new Error('Failed to fetch uploaded file from Cloudinary for parsing.');
+    }
+    const buffer = await response.arrayBuffer();
+    const pdfData = await pdfParse(buffer);
     const fullText = pdfData.text;
 
-    // 6. Create the database record using the new final filename for the URL
+    // 4. Create the file record in our database with the Cloudinary URL
     const newFileInDB = await File.create({
       name: req.file.originalname,
       size: `${(req.file.size / 1024).toFixed(2)} KB`,
-      url: `/uploads/${finalFilename}`, // ✅ Now using the user-specific URL
-      sessionId,
+      // ✅ Use the secure URL provided by Cloudinary
+      url: req.file.path, 
+      sessionId: sessionId,
       user: userId,
       content: fullText.trim(),
     });
 
-    console.log(`✅ File saved as ${finalFilename} and linked to DB.`);
     res.status(201).json(newFileInDB);
 
   } catch (err) {
-    console.error("❌ File upload failed:", err);
+    console.error("❌ Cloudinary upload route failed:", err);
     if (!res.headersSent) {
       res.status(500).json({ error: "Server error during file processing." });
     }
