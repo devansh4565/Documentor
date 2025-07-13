@@ -29,13 +29,14 @@ router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) =>
     // --- NEW, SIMPLIFIED UPLOAD & PARSING LOGIC ---
 
     // 1. Upload the file buffer from memory directly to Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString("base64");
-    let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-    const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
-        resource_type: 'auto',
-        folder: 'documentor_uploads',
-        public_id: `${userId}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`
-    });
+        const b64 = Buffer.from(req.file.buffer).toString("base64");
+        let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+        
+        const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
+            resource_type: 'auto',
+            folder: 'documentor_uploads',
+            public_id: `${userId}-${Date.now()}` // Simplified name
+        });
     console.log("✅ File successfully uploaded to Cloudinary:", cloudinaryResponse.secure_url);
 
     // 2. Parse the PDF text directly from the buffer we already have in memory.
@@ -59,12 +60,13 @@ router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) =>
       size: `${(req.file.size / 1024).toFixed(2)} KB`,
     });
 
-    res.status(201).json(newFileInDB);
+        res.status(201).json(/* newFileInDB */);
 
-  } catch (err) {
-    console.error("❌ Upload route failed:", err);
-    res.status(500).json({ error: "Server error during file processing." });
-  }
+    } catch (err) {
+        // We need to see the error from the Render logs.
+        console.error("❌ UPLOAD ROUTE CRASH:", err);
+        res.status(500).json({ error: "Server error during file processing." });
+    }
 });
 
 module.exports = router;

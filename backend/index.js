@@ -31,6 +31,7 @@ app.use(cors({
 }));
 // --- Local Imports ---
 const connectDB = require("./config/db");
+require('./config/cloudinary'); 
 const chatRoutes = require("./routes/chatRoutes");
 // const ocrRoutes = require("./routes/ocr");
 const uploadRoutes = require("./routes/upload");
