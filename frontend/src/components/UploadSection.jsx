@@ -221,9 +221,9 @@ const Footer = () => (
         <div className="container mx-auto px-6 text-center text-gray-500 dark:text-gray-400">
             <p>&copy; {new Date().getFullYear()} Documentor. All Rights Reserved.</p>
             <div className="flex justify-center gap-6 mt-4">
-                <a href="#" className="hover:text-purple-500 transition-colors"><Twitter /></a>
-                <a href="#" className="hover:text-purple-500 transition-colors"><Github /></a>
-                <a href="#" className="hover:text-purple-500 transition-colors"><Linkedin /></a>
+                <a href="https://x.com/devansh_4565" className="hover:text-purple-500 transition-colors"><Twitter /></a>
+                <a href="https://github.com/devansh4565/" className="hover:text-purple-500 transition-colors"><Github /></a>
+                <a href="https://www.linkedin.com/in/devansh-kadyan-b17041287/" className="hover:text-purple-500 transition-colors"><Linkedin /></a>
             </div>
         </div>
     </footer>
