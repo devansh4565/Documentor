@@ -5,7 +5,7 @@ const { v2: cloudinary } = require('cloudinary');
 const streamifier = require('streamifier');
 const path = require('path');
 const dotenv = require('dotenv');
-const File = require('../models/File'); // Ensure this path is correct
+const File = require('../models/File');
 
 dotenv.config();
 
@@ -42,8 +42,14 @@ router.post('/', upload.single('file'), async (req, res) => {
           overwrite: true,
         },
         (error, result) => {
-          // ✅ FIX: Properly check for errors within the result object too
-          if (error || result.error) {
+          // ✅ FINAL DEBUG LOG: See the raw Cloudinary response
+          console.log("--- RAW CLOUDINARY RESPONSE ---");
+          console.log("Error object:", error);
+          console.log("Result object:", result);
+          console.log("-------------------------------");
+
+          // Using optional chaining for extra safety
+          if (error || result?.error) {
             return reject(error || new Error(result.error.message));
           }
           resolve(result);
@@ -62,7 +68,6 @@ router.post('/', upload.single('file'), async (req, res) => {
     res.status(200).json(newFile);
 
   } catch (error) {
-    // ✅ FIX: Improved error logging to show the real cause
     console.error("🔴 Upload process failed. Reason:", error.message || error);
     res.status(500).json({ message: `Upload process failed: ${error.message || 'Unknown error'}` });
   }
