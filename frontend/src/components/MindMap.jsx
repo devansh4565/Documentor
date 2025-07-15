@@ -8,7 +8,7 @@ import { ArrowLeft, Loader2, MousePointer2, Pencil, Trash2, Undo2, Redo2, Palett
 import { motion, AnimatePresence } from 'framer-motion';
 import dagre from 'dagre';
 import MindMapToolbar from './MindMapToolbar';
-
+import axios from '../api/axiosConfig'; // Adjust path if needed
 // Helper function to prevent crashes on bad AI data
 const sanitizeTree = (node) => {
     if (!node || typeof node.text !== 'string') return null;
@@ -69,78 +69,73 @@ const MindMap = () => {
     const { fileId } = location.state || {};
     const PRESET_COLORS = ["#EF4444", "#F97316", "#84CC16", "#10B981", "#0EA5E9", "#6366F1", "#A855F7", "#EC4899", "#78716C"];
     useEffect(() => {
-    const loadAndLayoutMap = async () => {
-        // Use the new fileId state
-        if (!fileId) {
+// Replace the existing loadAndLayoutMap function with this one
+const loadAndLayoutMap = async () => {
+    if (!fileId) {
+        setLoading(false);
+        console.log("No fileId provided, cannot load mind map.");
+        return;
+    }
+    setLoading(true);
+
+    try {
+        // ✅ Use axios to automatically send the auth token
+        const res = await axios.get(`/api/mindmap/file/${fileId}`);
+
+        // Axios automatically checks for non-2xx responses and throws an error,
+        // and it also parses the JSON for us.
+        const aiData = res.data;
+
+        if (!aiData) {
+            console.log("No mind map data found for this file.");
             setLoading(false);
-            console.log("No fileId provided, cannot load mind map.");
             return;
         }
-        setLoading(true);
 
-        try {
-            // Call the new, file-specific endpoint
-            const res = await fetch(`${API}/api/mindmap/file/${fileId}`);
-            
-            if (!res.ok) {
-                throw new Error(`Failed to fetch mind map: ${res.statusText}`);
+        // --- The rest of your layout logic remains the same ---
+        const sanitizedRoot = sanitizeTree(aiData);
+        if (!sanitizedRoot) throw new Error("Invalid AI data structure.");
+
+        const dagreGraph = new dagre.graphlib.Graph();
+        dagreGraph.setGraph({ rankdir: 'LR', ranksep: 80, nodesep: 25 });
+        dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+        setNodes([]);
+        setLines([]);
+
+        const tempNodes = [];
+        const tempLines = [];
+        const NODE_WIDTH = 200, NODE_HEIGHT = 50;
+
+        function buildGraph(dataNode, parentId = null) {
+            const myId = uuidv4();
+            dagreGraph.setNode(myId, { label: dataNode.text, width: NODE_WIDTH, height: NODE_HEIGHT });
+            tempNodes.push({ id: myId, text: dataNode.text });
+
+            if (parentId) {
+                dagreGraph.setEdge(parentId, myId);
+                tempLines.push({ from: parentId, to: myId });
             }
-
-            const aiData = await res.json();
-            if (!aiData) {
-                console.log("No mind map data found for this file.");
-                setLoading(false);
-                return;
+            if (dataNode.children) {
+                dataNode.children.forEach(child => buildGraph(child, myId));
             }
-
-            // --- The rest of your layout logic remains the same ---
-            const sanitizedRoot = sanitizeTree(aiData);
-            if (!sanitizedRoot) throw new Error("Invalid AI data structure.");
-            
-            const dagreGraph = new dagre.graphlib.Graph();
-            dagreGraph.setGraph({ rankdir: 'LR', ranksep: 80, nodesep: 25 });
-            dagreGraph.setDefaultEdgeLabel(() => ({}));
-            
-            // ... (your existing buildGraph and dagre.layout logic) ...
-
-            // --- It's good practice to clear old state before setting new ---
-            setNodes([]);
-            setLines([]);
-
-            const tempNodes = [];
-            const tempLines = [];
-            const NODE_WIDTH = 200, NODE_HEIGHT = 50;
-
-            function buildGraph(dataNode, parentId = null) {
-                const myId = uuidv4();
-                dagreGraph.setNode(myId, { label: dataNode.text, width: NODE_WIDTH, height: NODE_HEIGHT });
-                tempNodes.push({ id: myId, text: dataNode.text });
-
-                if (parentId) {
-                    dagreGraph.setEdge(parentId, myId);
-                    tempLines.push({ from: parentId, to: myId });
-                }
-                if (dataNode.children) {
-                    dataNode.children.forEach(child => buildGraph(child, myId));
-                }
-            }
-            
-            buildGraph(sanitizedRoot);
-            dagre.layout(dagreGraph);
-
-            setNodes(tempNodes.map(node => {
-                const dagreNode = dagreGraph.node(node.id);
-                return { ...node, x: dagreNode.x, y: dagreNode.y, width: dagreNode.width, height: dagreNode.height };
-            }));
-            setLines(tempLines);
-            
-        } catch (err) { 
-            console.error("Failed to load or layout mind map:", err); 
-        } finally { 
-            setLoading(false); 
         }
-    };
 
+        buildGraph(sanitizedRoot);
+        dagre.layout(dagreGraph);
+
+        setNodes(tempNodes.map(node => {
+            const dagreNode = dagreGraph.node(node.id);
+            return { ...node, x: dagreNode.x, y: dagreNode.y, width: dagreNode.width, height: dagreNode.height };
+        }));
+        setLines(tempLines);
+
+    } catch (err) { 
+        console.error("Failed to load or layout mind map:", err); 
+    } finally { 
+        setLoading(false); 
+    }
+};
     loadAndLayoutMap();
 
 // Update the dependency array to use fileId
