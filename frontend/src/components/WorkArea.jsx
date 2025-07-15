@@ -13,7 +13,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase"; // Import the instance
 import useFirebaseUser from "../hooks/useFirebaseUser";
 import { sendToGPT } from "../utils/sendToGPT"; // Import sendToGPT
-import SplineLoader from '/SplineLoader.jsx'; 
+import SplineLoader from './SplineLoader.jsx'; 
 
 // CSS Imports for react-pdf are essential for rendering
 import 'react-pdf/dist/Page/AnnotationLayer.css';
