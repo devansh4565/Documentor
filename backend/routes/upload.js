@@ -1,8 +1,8 @@
-import express from 'express';
-import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
-import streamifier from 'streamifier';
-import dotenv from 'dotenv';
+const express = require('express');
+const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const streamifier = require('streamifier');
+const dotenv = require('dotenv');
 
 dotenv.config();
 
@@ -30,17 +30,15 @@ router.post('/', upload.single('file'), (req, res) => {
   }
 
   // --- DEBUGGING LOG #2: Check the file buffer ---
-  // This shows us the raw data of the file received by the server.
   console.log('--- Checking File Buffer ---');
   console.log('File buffer size:', req.file.buffer.length);
   console.log('File buffer (first 100 bytes):', req.file.buffer.slice(0, 100).toString('hex'));
   console.log('--------------------------');
 
-
   let stream = cloudinary.uploader.upload_stream(
     {
       folder: 'pdfs',
-      resource_type: 'raw', // Use 'raw' for non-image files like PDFs
+      resource_type: 'raw',
       format: 'pdf',
     },
     (error, result) => {
@@ -64,4 +62,4 @@ router.post('/', upload.single('file'), (req, res) => {
   streamifier.createReadStream(req.file.buffer).pipe(stream);
 });
 
-export default router;
+module.exports = router; // Use module.exports instead of 'export default'
