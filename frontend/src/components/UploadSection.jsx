@@ -6,36 +6,33 @@ import { Moon, Sun, FileText, BrainCircuit, MessageSquare } from 'lucide-react';
 import Spline from '@splinetool/react-spline'; // Use the standard import
 
 // === Header Component ===
+// Homepage.jsx
+
+// === Header Component ===
 const Header = () => {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  // ✅ State to track scroll position
   const [scrolled, setScrolled] = useState(false);
 
-  // ✅ Effect to listen for scroll events
   useEffect(() => {
     const handleScroll = () => {
-      // Set scrolled to true if user has scrolled more than 10px
       setScrolled(window.scrollY > 10);
     };
-
-    // Add listener
     window.addEventListener('scroll', handleScroll);
-
-    // Cleanup listener on component unmount
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
-    // ✅ Conditionally apply classes based on scroll state
+    // ✅ a) Make the main header container ignore mouse events
     <header className={`
-      fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300
+      fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 pointer-events-none
       ${scrolled
         ? 'py-3 bg-white/95 dark:bg-purple-950/90 shadow-md backdrop-blur-lg'
         : 'py-3 bg-transparent'
       }
     `}>
       <div className="container mx-auto px-6 flex justify-between items-center">
+        {/* This div remains as is, as it's just for layout */}
         <div className="flex items-center gap-2">
            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-purple-600 dark:stroke-purple-400">
             <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -43,7 +40,9 @@ const Header = () => {
           </svg>
           <span className="text-xl font-bold text-gray-800 dark:text-white">Documentor</span>
         </div>
-        <div className="flex items-center gap-4">
+        
+        {/* ✅ b) Make the button container accept mouse events again */}
+        <div className="flex items-center gap-4 pointer-events-auto">
           <button onClick={() => navigate('/login')} className="font-semibold text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
             Sign In
           </button>
