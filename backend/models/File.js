@@ -1,44 +1,27 @@
 // backend/models/File.js
 
-const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
+const mongoose = require('mongoose');
 
-const FileSchema = new Schema({
+const fileSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true,
+        required: true
     },
-    size: {
-        type: String, // Keeping as String since original was String
-    },
-    url: { // You need a field to store the path to the file on your server/cloud
+    url: {
         type: String,
-        required: true,
+        required: true
     },
-    content: { // This is where you will store the extracted text from OCR
-        type: String,
-        default: ''
-    },
-
-    // --- THIS IS THE FIX ---
-
-    // 1. Add a required `user` field to store the Firebase UID.
-    user: {
-        type: String,
-        required: true,
-        index: true, // Index for faster lookups
-    },
-
-    // 2. Correctly type and reference the sessionId.
     sessionId: {
-        type: Schema.Types.ObjectId,
-        ref: 'ChatSession', // Creates a link to the ChatSession model
-        required: true,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Chat', // Ensure 'Chat' is the correct name of your session model
+        required: true
     },
-    // -------------------------
-
+    // You can add other fields here if needed, like 'content'
+    // content: { type: String }
 }, {
-    timestamps: true // Adds createdAt and updatedAt
+    timestamps: true // Automatically adds createdAt and updatedAt fields
 });
 
-module.exports = mongoose.models.File || mongoose.model('File', FileSchema);
+// ✅ THIS IS THE CRITICAL LINE
+// It takes the schema and creates a model named 'File', then exports it.
+module.exports = mongoose.model('File', fileSchema);
