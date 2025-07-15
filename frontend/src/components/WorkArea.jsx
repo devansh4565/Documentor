@@ -462,7 +462,7 @@ const exportChat = useCallback(() => {
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
         {messages.map((msg) => (
           <div key={msg._id || `msg-${msg.text.slice(0, 10)}`} className={`p-3 rounded-xl max-w-[85%] break-words ${msg.sender === 'user' ? 'ml-auto bg-green-200 dark:bg-green-800' : 'bg-gray-200 dark:bg-gray-700'}`}>
-            <p className="text-sm">{msg.text}</p>
+            <p className="text-sm">{msg.content}</p>
           </div>
         ))}
         {loading && (
