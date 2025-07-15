@@ -6,7 +6,7 @@ import { Sun, Moon, ChevronLeft, ChevronRight, Menu, Lightbulb } from "lucide-re
 import { useTheme } from "../context/ThemeContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { Document, Page, pdfjs } from 'react-pdf';
-import axios from "axios";
+import axios from "../api/axiosConfig";
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
 import { onAuthStateChanged } from "firebase/auth";

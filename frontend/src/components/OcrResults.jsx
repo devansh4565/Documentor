@@ -1,6 +1,6 @@
 // frontend/src/components/OcrResults.js
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../api/axiosConfig";
 
 const OcrResults = () => {
   const [results, setResults] = useState([]);
