@@ -1,12 +1,13 @@
+// backend/routes/upload.js
 const express = require('express');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const streamifier = require('streamifier');
 const path = require('path');
 const dotenv = require('dotenv');
-const pdf = require('pdf-parse'); // For reading PDF content
+const pdf = require('pdf-parse');
 const File = require('../models/File');
-const verifyFirebaseToken = require('../middleware/verifyFirebaseToken'); // For user authentication
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 
 dotenv.config();
 
@@ -21,7 +22,6 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Apply authentication middleware and then handle the file upload
 router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded.' });
@@ -32,13 +32,14 @@ router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) =>
   }
 
   try {
-    // 1. Extract text content from the PDF
     const pdfData = await pdf(req.file.buffer);
     const extractedText = pdfData.text;
 
-    // 2. Upload the file to Cloudinary
     const cloudinaryResult = await new Promise((resolve, reject) => {
-      const fileName = path.parse(req.file.originalname).name;
+      const originalName = path.parse(req.file.originalname).name;
+      // ✅ FIX: Sanitize the filename to remove invalid characters
+      const fileName = originalName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: 'pdfs',
@@ -59,13 +60,12 @@ router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) =>
       streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
     });
 
-    // 3. Save file metadata, content, and user ID to the database
     const newFile = new File({
       name: req.file.originalname,
       url: cloudinaryResult.secure_url,
       sessionId: sessionId,
-      content: extractedText, // Save extracted text
-      user: req.user.uid,      // Save user ID from middleware
+      content: extractedText,
+      user: req.user.uid,
     });
 
     await newFile.save();
