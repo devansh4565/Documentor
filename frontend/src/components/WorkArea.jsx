@@ -13,6 +13,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase"; // Import the instance
 import useFirebaseUser from "../hooks/useFirebaseUser";
 import { sendToGPT } from "../utils/sendToGPT"; // Import sendToGPT
+import SplineLoader from '/SplineLoader.jsx'; 
 
 // CSS Imports for react-pdf are essential for rendering
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -499,7 +500,7 @@ const exportChat = useCallback(() => {
       <div className={`h-screen w-full flex overflow-hidden ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-blue-50 text-gray-900'}`}>
         {mobileDrawer && <div onClick={() => setMobileDrawer(null)} className="fixed inset-0 z-30 bg-black/40 lg:hidden"></div>}
 
-        <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-all duration-300 ${leftOpen ? 'ml-0' : '-ml-80'}`}>
+        <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ease-in-out ${leftOpen ? 'translate-x-0' : '-translate-x-full'}`}>
          {leftPanel}
         </aside>
         
@@ -515,16 +516,24 @@ const exportChat = useCallback(() => {
                 <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
                 <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
                           {selectedFile?.url && containerWidth > 0 && (
-                            <Document
-                              file={selectedFile.url}
-                              onLoadSuccess={onDocumentLoadSuccess}
-                              key={selectedFile._id}
-                            >
-                              <Page
-                                pageNumber={pageNumber}
-                                width={containerWidth > 0 ? containerWidth - 40 : undefined}
-                              />
-                            </Document>
+                            <Document
+                                file={selectedFile.url}
+                                onLoadSuccess={onDocumentLoadSuccess}
+                                key={selectedFile._id}
+                                // ✅ Add the loading prop here
+                                loading={
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <div className="w-48 h-48">
+                                            <SplineLoader />
+                                        </div>
+                                    </div>
+                                }
+                            >
+                                <Page
+                                    pageNumber={pageNumber}
+                                    width={containerWidth > 0 ? containerWidth - 40 : undefined}
+                                />
+                            </Document>
                   )}
                 </div>
                 {numPages && (
@@ -549,7 +558,7 @@ const exportChat = useCallback(() => {
           </div>
         </main>
 
-        <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-all duration-300 ${rightOpen ? 'mr-0' : '-mr-80'}`}>
+        <aside className={`w-80 flex-col flex-shrink-0 hidden lg:flex ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} transition-transform duration-300 ease-in-out ${rightOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             {rightPanel}
         </aside>
         
