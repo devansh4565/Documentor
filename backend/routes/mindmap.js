@@ -1,42 +1,48 @@
+// backend/routes/mindmap.js
 const express = require("express");
 const router = express.Router();
 const MindMapData = require("../models/MindMapData");
-// We no longer need verifyFirebaseToken if these routes are unprotected.
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken'); // ✅ 1. Import authentication
 
-// --- NEW ROUTE for file-specific check ---
+// ✅ 2. Apply authentication to all mind map routes
+router.use(verifyFirebaseToken);
+
 // GET /api/mindmap/exists/file/:fileId
 router.get("/exists/file/:fileId", async (req, res) => {
     try {
         const { fileId } = req.params;
-        const count = await MindMapData.countDocuments({ fileId: fileId });
+        // ✅ 3. Only check for mind maps belonging to the logged-in user
+        const count = await MindMapData.countDocuments({ fileId: fileId, user: req.user.uid });
         res.status(200).json({ exists: count > 0 });
     } catch (error) {
         res.status(500).json({ error: "Server error." });
     }
 });
 
-// --- NEW ROUTE for saving a file-specific map ---
 // POST /api/mindmap/file/:fileId
 router.post("/file/:fileId", async (req, res) => {
     try {
         const { fileId } = req.params;
-        await MindMapData.findOneAndUpdate(
-            { fileId: fileId },
-            { data: req.body.data, fileId: fileId },
+        const userId = req.user.uid; // Get the user's ID
+
+        // ✅ 4. Find by fileId AND userId, and save the userId with the data
+        const mindMap = await MindMapData.findOneAndUpdate(
+            { fileId: fileId, user: userId },
+            { data: req.body.data, fileId: fileId, user: userId },
             { upsert: true, new: true }
         );
-        res.status(200).json({ success: true });
+        res.status(200).json(mindMap);
     } catch (err) {
         res.status(500).json({ error: "Failed to save mind map." });
     }
 });
 
-// --- NEW ROUTE for getting a file-specific map ---
 // GET /api/mindmap/file/:fileId
 router.get("/file/:fileId", async (req, res) => {
     try {
         const { fileId } = req.params;
-        const map = await MindMapData.findOne({ fileId: fileId });
+        // ✅ 5. Only find mind maps belonging to the logged-in user
+        const map = await MindMapData.findOne({ fileId: fileId, user: req.user.uid });
         res.status(200).json(map ? map.data : null);
     } catch (err) {
         res.status(500).json({ error: "Failed to fetch mind map." });
