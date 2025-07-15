@@ -40,6 +40,7 @@ router.post('/', upload.single('file'), async (req, res) => { // 👈 Note: rout
         resource_type: 'raw',
         format: 'pdf',
         access_mode: 'public', // Ensure file is publicly accessible
+        overwrite: true,
       },
       (error, result) => {
         if (error) {
