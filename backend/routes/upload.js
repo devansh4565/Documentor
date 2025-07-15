@@ -3,7 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const streamifier = require('streamifier');
-const path = require('path');
+const path =require('path');
 const dotenv = require('dotenv');
 const File = require('../models/File');
 
@@ -40,15 +40,9 @@ router.post('/', upload.single('file'), async (req, res) => {
           resource_type: 'raw',
           access_mode: 'public',
           overwrite: true,
+          async: false, // ✅ THE FINAL FIX: Force synchronous processing
         },
         (error, result) => {
-          // ✅ FINAL DEBUG LOG: See the raw Cloudinary response
-          console.log("--- RAW CLOUDINARY RESPONSE ---");
-          console.log("Error object:", error);
-          console.log("Result object:", result);
-          console.log("-------------------------------");
-
-          // Using optional chaining for extra safety
           if (error || result?.error) {
             return reject(error || new Error(result.error.message));
           }
