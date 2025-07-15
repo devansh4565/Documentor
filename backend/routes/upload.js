@@ -2,64 +2,75 @@ const express = require('express');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const streamifier = require('streamifier');
+const path = require('path');
 const dotenv = require('dotenv');
+const File = require('../models/File'); // 👈 Make sure this path to your File model is correct
 
 dotenv.config();
 
 const router = express.Router();
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configure Multer for in-memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-router.post('/', upload.single('file'), (req, res) => {
-  // --- DEBUGGING LOG #1: Check received file info ---
-  console.log('--- Received file information ---');
-  console.log(req.file);
-  console.log('---------------------------------');
-
+router.post('/', upload.single('file'), async (req, res) => { // 👈 Note: route is now async
   if (!req.file) {
     return res.status(400).send({ message: 'No file uploaded.' });
   }
 
-  // --- DEBUGGING LOG #2: Check the file buffer ---
-  console.log('--- Checking File Buffer ---');
-  console.log('File buffer size:', req.file.buffer.length);
-  console.log('File buffer (first 100 bytes):', req.file.buffer.slice(0, 100).toString('hex'));
-  console.log('--------------------------');
+  // sessionId will come from the form data
+  const { sessionId } = req.body;
+  if (!sessionId) {
+    return res.status(400).send({ message: 'Session ID is required.' });
+  }
 
-  let stream = cloudinary.uploader.upload_stream(
-    {
-      folder: 'pdfs',
-      resource_type: 'raw',
-      format: 'pdf',
-    },
-    (error, result) => {
-      if (error) {
-        console.error('Cloudinary Upload Error:', error);
-        return res.status(500).send({ message: 'Cloudinary upload failed', error });
+  const fileName = path.parse(req.file.originalname).name;
+
+  const uploadPromise = new Promise((resolve, reject) => {
+    let stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'pdfs',
+        public_id: fileName,
+        resource_type: 'raw',
+        format: 'pdf',
+        access_mode: 'public', // Ensure file is publicly accessible
+      },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+        resolve(result);
       }
+    );
+    streamifier.createReadStream(req.file.buffer).pipe(stream);
+  });
 
-      // --- DEBUGGING LOG #3: Check Cloudinary result ---
-      console.log('--- Cloudinary Upload Result ---');
-      console.log(result);
-      console.log('--------------------------------');
+  try {
+    const cloudinaryResult = await uploadPromise;
 
-      res.status(200).send({
-        message: 'File uploaded successfully',
-        url: result.secure_url,
-      });
-    }
-  );
+    // Now, create a new document in your database
+    const newFile = new File({
+      name: req.file.originalname,
+      url: cloudinaryResult.secure_url, // Use the secure URL from Cloudinary
+      sessionId: sessionId,
+      // Add other fields like 'content' if you extract text on the backend
+    });
 
-  streamifier.createReadStream(req.file.buffer).pipe(stream);
+    await newFile.save();
+
+    // ✅ Respond with the complete file object from the database
+    res.status(200).json(newFile);
+
+  } catch (error) {
+    console.error('Upload process failed:', error);
+    res.status(500).send({ message: 'Upload process failed', error });
+  }
 });
 
-module.exports = router; // Use module.exports instead of 'export default'
+module.exports = router;
