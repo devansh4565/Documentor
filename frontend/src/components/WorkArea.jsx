@@ -1,3 +1,4 @@
+// frontend/src/components/WorkArea.jsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -11,6 +12,7 @@ import Header from './Header';
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase"; // Import the instance
 import useFirebaseUser from "../hooks/useFirebaseUser";
+import { sendToGPT } from "../utils/sendToGPT"; // Import sendToGPT
 
 // CSS Imports for react-pdf are essential for rendering
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -35,7 +37,7 @@ const WorkArea = ({ initialSessions, setInitialSessions }) => {
   const hasAutoSelected = useRef(false);
   const [showNewChatPopup, setShowNewChatPopup] = useState(false);
   const [newChatName, setNewChatName] = useState("");
-  const [contextMenu, setContextMenu] = useState(null);
+  const [contextMenu, setContextMenu, ] = useState(null);
   const [selectedChat, setSelectedChat] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [sessionFiles, setSessionFiles] = useState([]);
@@ -139,7 +141,7 @@ useEffect(() => {
             const filesData = await filesRes.json();
             const messagesData = await messagesRes.json();
             setSessionFiles(filesData || []);
-            const formattedMessages = (messagesData || []).map(dbMsg => ({ sender: dbMsg.role, text: dbMsg.content, _id: dbMsg._id }));
+            const formattedMessages = (messagesData || []).map(dbMsg => ({ sender: dbMsg.role, content: dbMsg.content, _id: dbMsg._id }));
             setMessages(formattedMessages);
         } catch (err) {
             console.error("Failed to fetch session data:", err);
@@ -328,6 +330,73 @@ const handleGenerateMindMap = useCallback(async () => {
     }
 }, [selectedFile, API, navigate, setLoading]); // Update dependencies
 
+// --- NEW FUNCTION FOR MULTI-FILE SUMMARIZATION ---
+const handleMultiFileSummarize = useCallback(async () => {
+    if (selectedFilesForSummary.length === 0 || !selectedChat) {
+        alert("Please select files and ensure a chat session is active to summarize.");
+        return;
+    }
+
+    setLoading(true);
+    let combinedSummary = "";
+    const summaries = [];
+
+    try {
+        // Optimistic UI for user's request
+        setMessages(prev => [...prev, { _id: `user-sum-req-${Date.now()}`, sender: 'user', text: `Please summarize the selected ${selectedFilesForSummary.length} files.` }]);
+
+        for (const file of selectedFilesForSummary) {
+            if (file.content) {
+                // Call sendToGPT for each file's content
+                const summary = await sendToGPT(file.content); // Use the utility function
+                summaries.push(`Summary of "${file.name}":\n${summary}`);
+            } else {
+                summaries.push(`Could not retrieve content for "${file.name}".`);
+            }
+        }
+        
+        combinedSummary = summaries.join("\n\n---\n\n");
+
+        // Animate the combined summary as a bot response
+        let i = 0;
+        const typingInterval = setInterval(() => {
+            if (i < combinedSummary.length) {
+                setBotTyping(combinedSummary.slice(0, i + 1));
+                i++;
+            } else {
+                clearInterval(typingInterval);
+                const finalBotMessage = {
+                    _id: `bot-multi-sum-${Date.now()}`,
+                    sender: 'assistant',
+                    text: combinedSummary,
+                };
+                setMessages(prev => [...prev, finalBotMessage]);
+                setBotTyping("");
+
+                // Save the final bot message to the database
+                getIdToken().then(token => {
+                    axios.post(
+                        `${API}/api/chats/${selectedChat}/messages`,
+                        { role: "assistant", content: combinedSummary },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    ).catch(err => {
+                        console.error("Background save of multi-summary message failed:", err);
+                    });
+                });
+            }
+        }, 30); // Adjust typing speed as needed
+
+    } catch (error) {
+        console.error("Error summarizing multiple files:", error);
+        setBotTyping(""); // Clear any partial typing
+        setMessages(prev => [...prev, { _id: `err-multi-sum-${Date.now()}`, sender: 'assistant', text: '⚠️ Error summarizing selected files.' }]);
+    } finally {
+        setLoading(false);
+        setSelectedFilesForSummary([]); // Clear selection after processing
+    }
+}, [selectedFilesForSummary, selectedChat, API, getIdToken, setMessages, setLoading, setBotTyping]);
+
+
 const exportChat = useCallback(() => {
     // 1. Guard Clause: Don't do anything if there are no messages to export.
     if (messages.length === 0) {
@@ -512,7 +581,7 @@ const exportChat = useCallback(() => {
             {selectedFile ? (
               <div className="flex flex-col h-full p-4">
                 <h1 className="flex-shrink-0 text-center font-semibold mb-2 text-lg">{selectedFile.name}</h1>
-                <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg">
+                <div ref={pdfWrapperRef} className="flex-1 w-full min-h-0 overflow-y-auto flex justify-center py-2 bg-gray-200/30 dark:bg-black/20 rounded-lg relative"> {/* Added 'relative' here */}
                           
                           {/* ✅ RENDER ONLY WHEN WIDTH IS KNOWN */}
                           {selectedFile?.url && containerWidth > 0 && (
@@ -528,6 +597,15 @@ const exportChat = useCallback(() => {
                               />
                             </Document>
                   )}
+                  {/* Moved Theme Toggle Button inside pdfWrapperRef */}
+                  <button
+                    onClick={toggleTheme}
+                    className={`absolute top-6 right-6 p-2 rounded-full shadow hover:scale-105 transition-all duration-300 ring-2 ring-offset-2 ${
+                      theme === 'light' ? 'bg-blue-200 hover:bg-blue-300 text-blue-800 ring-blue-400' : 'bg-purple-700 hover:bg-purple-600 text-yellow-300 ring-purple-400'
+                    }`}
+                  >
+                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                  </button>
                 </div>
                 {numPages && (
                   <div className="flex-shrink-0 mt-2 flex justify-center">
@@ -575,19 +653,12 @@ const exportChat = useCallback(() => {
           )}
         </AnimatePresence>
 
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-4">
-                <button
-                  onClick={toggleTheme}
-                  className={`absolute top-6 right-6 p-2 rounded-full shadow hover:scale-105 transition-all duration-300 ring-2 ring-offset-2 ${
-                    theme === 'light' ? 'bg-blue-200 hover:bg-blue-300 text-blue-800 ring-blue-400' : 'bg-purple-700 hover:bg-purple-600 text-yellow-300 ring-purple-400'
-                  }`}
-                >
-                  {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                </button>            <div className="lg:hidden flex gap-2">
-                <button onClick={() => setMobileDrawer('left')}><Menu size={22}/></button>
-                <button onClick={() => setMobileDrawer('right')}><Menu size={22}/></button>
-            </div>
+        {/* This div now only contains mobile menu buttons */}
+        <div className="absolute top-4 right-4 z-20 lg:hidden flex gap-2 items-center">
+            <button onClick={() => setMobileDrawer('left')}><Menu size={22}/></button>
+            <button onClick={() => setMobileDrawer('right')}><Menu size={22}/></button>
         </div>
+
         <div className={`absolute bottom-6 z-20 flex flex-col items-end gap-3 transition-all duration-300 ${rightOpen && isDesktop ? 'right-[22rem]' : 'right-6'}`}>
 
             {/* --- 1. The Multi-File Summarize Button --- */}
@@ -599,7 +670,7 @@ const exportChat = useCallback(() => {
                         exit={{ opacity: 0, y: 10 }}
                     >
                         <button
-                            onClick={() => { /* Make sure handleMultiFileSummarize exists */ }}
+                            onClick={handleMultiFileSummarize}
                             className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-semibold rounded-full shadow-lg hover:bg-green-600"
                         >
                             <Lightbulb size={18} />

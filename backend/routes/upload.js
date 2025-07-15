@@ -1,79 +1,67 @@
-const express = require("express");
-const multer = require("multer");
-const pdfParse = require("pdf-parse");
-const cloudinary = require('cloudinary').v2;
-const streamifier = require('streamifier'); // We need this small helper library
+import express from 'express';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import streamifier from 'streamifier';
+import dotenv from 'dotenv';
 
-const File = require("../models/File");
-const ChatSession = require("../models/ChatSession");
-const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
+dotenv.config();
 
 const router = express.Router();
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure Multer for in-memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// This is a helper function to wrap the Cloudinary stream upload in a Promise
-const streamUpload = (req) => {
-    return new Promise((resolve, reject) => {
-        let stream = cloudinary.uploader.upload_stream(
-            {
-                folder: "documentor_uploads",
-                // ✅ THIS IS THE CRITICAL FIX
-                // Force the resource type to 'raw' for non-image files like PDFs.
-                // This prevents Cloudinary from trying to process it as an image.
-                resource_type: "raw", 
-            },
-            (error, result) => {
-                if (result) {
-                    resolve(result);
-                } else {
-                    reject(error);
-                }
-            }
-        );
-        // The rest of the stream logic is correct
-        streamifier.createReadStream(req.file.buffer).pipe(stream);
-    });
-};
+router.post('/', upload.single('file'), (req, res) => {
+  // --- DEBUGGING LOG #1: Check received file info ---
+  console.log('--- Received file information ---');
+  console.log(req.file);
+  console.log('---------------------------------');
 
-
-// POST /api/upload
-router.post("/", verifyFirebaseToken, upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-    const userId = req.user.uid;
-    let sessionId = req.body.sessionId;
-
-    // --- NEW UPLOAD LOGIC ---
-    const cloudinaryResult = await streamUpload(req);
-    console.log("✅ File successfully uploaded via stream:", cloudinaryResult.secure_url);
-
-    const pdfData = await pdfParse(req.file.buffer);
-    const fullText = pdfData.text;
-
-    if (!sessionId) {
-        const newSession = await ChatSession.create({ name: req.file.originalname, user: userId });
-        sessionId = newSession._id.toString();
-    }
-
-    const newFileInDB = await File.create({
-      name: req.file.originalname,
-      url: cloudinaryResult.secure_url,
-      sessionId: sessionId,
-      user: userId,
-      content: fullText.trim(),
-      size: `${(req.file.size / 1024).toFixed(2)} KB`,
-    });
-
-    res.status(201).json(newFileInDB);
-
-  } catch (err) {
-    console.error("❌ UPLOAD ROUTE FAILED:", err);
-    res.status(500).json({ error: "Server error during file upload." });
+  if (!req.file) {
+    return res.status(400).send({ message: 'No file uploaded.' });
   }
+
+  // --- DEBUGGING LOG #2: Check the file buffer ---
+  // This shows us the raw data of the file received by the server.
+  console.log('--- Checking File Buffer ---');
+  console.log('File buffer size:', req.file.buffer.length);
+  console.log('File buffer (first 100 bytes):', req.file.buffer.slice(0, 100).toString('hex'));
+  console.log('--------------------------');
+
+
+  let stream = cloudinary.uploader.upload_stream(
+    {
+      folder: 'pdfs',
+      resource_type: 'raw', // Use 'raw' for non-image files like PDFs
+      format: 'pdf',
+    },
+    (error, result) => {
+      if (error) {
+        console.error('Cloudinary Upload Error:', error);
+        return res.status(500).send({ message: 'Cloudinary upload failed', error });
+      }
+
+      // --- DEBUGGING LOG #3: Check Cloudinary result ---
+      console.log('--- Cloudinary Upload Result ---');
+      console.log(result);
+      console.log('--------------------------------');
+
+      res.status(200).send({
+        message: 'File uploaded successfully',
+        url: result.secure_url,
+      });
+    }
+  );
+
+  streamifier.createReadStream(req.file.buffer).pipe(stream);
 });
 
-module.exports = router;
+export default router;
