@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { Moon, Sun, FileText, BrainCircuit, MessageSquare } from 'lucide-react';
+import { Moon, Sun, FileText, BrainCircuit, MessageSquare, UploadCloud, Search, Target, Twitter, Linkedin, Github } from 'lucide-react';
 import Spline from '@splinetool/react-spline'; // Use the standard import
 
 // === Header Component ===
