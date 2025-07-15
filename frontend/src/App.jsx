@@ -5,11 +5,12 @@ import { UserProvider } from './auth/UserContext';
 import SplineLoader from './components/SplineLoader'; // Your global loader
 
 // ✅ 2. Change static imports to dynamic lazy-loaded imports
-const Homepage = React.lazy(() => import('./components/Homepage'));
-const LoginPage = React.lazy(() => import('./components/LoginPage'));
-const WorkArea = React.lazy(() => import('./components/WorkArea'));
-const MindMap = React.lazy(() => import('./components/MindMap'));
-const ProtectedRoute = React.lazy(() => import('./components/ProtectedRoute'));
+// CORRECT
+const Homepage = React.lazy(() => import('./components/Homepage.jsx'));
+const LoginPage = React.lazy(() => import('./components/LoginPage.jsx'));
+const WorkArea = React.lazy(() => import('./components/WorkArea.jsx'));
+const MindMap = React.lazy(() => import('./components/MindMap.jsx'));
+const ProtectedRoute = React.lazy(() => import('./components/ProtectedRoute.jsx'));
 
 // A fallback component to show while pages are loading
 const FullPageLoader = () => (
