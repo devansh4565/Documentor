@@ -1,11 +1,12 @@
-// backend/routes/upload.js
 const express = require('express');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const streamifier = require('streamifier');
-const path =require('path');
+const path = require('path');
 const dotenv = require('dotenv');
+const pdf = require('pdf-parse'); // For reading PDF content
 const File = require('../models/File');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken'); // For user authentication
 
 dotenv.config();
 
@@ -20,16 +21,22 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-router.post('/', upload.single('file'), async (req, res) => {
+// Apply authentication middleware and then handle the file upload
+router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) => {
   if (!req.file) {
-    return res.status(400).send({ message: 'No file uploaded.' });
+    return res.status(400).json({ message: 'No file uploaded.' });
   }
   const { sessionId } = req.body;
   if (!sessionId) {
-    return res.status(400).send({ message: 'Session ID is required.' });
+    return res.status(400).json({ message: 'Session ID is required.' });
   }
 
   try {
+    // 1. Extract text content from the PDF
+    const pdfData = await pdf(req.file.buffer);
+    const extractedText = pdfData.text;
+
+    // 2. Upload the file to Cloudinary
     const cloudinaryResult = await new Promise((resolve, reject) => {
       const fileName = path.parse(req.file.originalname).name;
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -40,7 +47,7 @@ router.post('/', upload.single('file'), async (req, res) => {
           resource_type: 'raw',
           access_mode: 'public',
           overwrite: true,
-          async: false, // ✅ THE FINAL FIX: Force synchronous processing
+          async: false,
         },
         (error, result) => {
           if (error || result?.error) {
@@ -52,10 +59,13 @@ router.post('/', upload.single('file'), async (req, res) => {
       streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
     });
 
+    // 3. Save file metadata, content, and user ID to the database
     const newFile = new File({
       name: req.file.originalname,
       url: cloudinaryResult.secure_url,
       sessionId: sessionId,
+      content: extractedText, // Save extracted text
+      user: req.user.uid,      // Save user ID from middleware
     });
 
     await newFile.save();
