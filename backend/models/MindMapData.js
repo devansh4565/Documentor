@@ -10,10 +10,11 @@ const mindMapDataSchema = new Schema({
         unique: true,
         index: true,
     },
-    user: { // ✅ ADD THIS REQUIRED FIELD
+    user: {
         type: String,
         required: true
     },
 }, { timestamps: true });
 
-module.exports = mongoose.models.MindMapData || mongoose.model("MindMapData", mindMapDataSchema);
+// ✅ Use the standard export format to prevent silent errors
+module.exports = mongoose.model("MindMapData", mindMapDataSchema);
